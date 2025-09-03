@@ -1,3 +1,7 @@
+--[[
+ go to https://cubic-bezier.com to edit curve
+ ]]
+
 local CubicBezier = {}
 
 function CubicBezier:GetValueAtTime(t: number)
