@@ -14,7 +14,7 @@ function CubicBezier:GetValueAtTime(t: number)
 end
 
 function CubicBezier.new(x1: number, y1: number, x2: number, y2: number)
-	local self = setmetatable(CubicBezier, {})
+	local self = setmetatable({}, {__index = CubicBezier})
 	self.P0 = Vector2.new(0, 0)
 	self.P1 = Vector2.new(x1, y1)
 	self.P2 = Vector2.new(x2, y2)
