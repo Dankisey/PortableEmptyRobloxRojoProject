@@ -1,0 +1,4 @@
+{
+    "robloxLsp.typeChecking.showFullType": true,
+    "robloxLsp.suggestedImports.importScriptChildren": true
+}

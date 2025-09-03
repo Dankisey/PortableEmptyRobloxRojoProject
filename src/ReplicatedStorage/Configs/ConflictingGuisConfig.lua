@@ -1,0 +1,5 @@
+local ConflictingGuisConfig = {
+
+}
+
+return ConflictingGuisConfig

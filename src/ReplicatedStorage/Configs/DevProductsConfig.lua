@@ -1,0 +1,3 @@
+local DevProductsConfig = {}
+
+return DevProductsConfig
