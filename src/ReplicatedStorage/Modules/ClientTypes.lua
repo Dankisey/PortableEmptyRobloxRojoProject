@@ -117,6 +117,13 @@ export type BoostsFrame = {
     TryRemoveWidget: (BoostsFrame, key: string) -> boolean;
 }  & ControllerTemplate
 
+export type FadingGui = {
+    new: () -> FadingGui;
+
+    FadeOut: (FadingGui) -> RBXScriptSignal?;
+    FadeIn: (FadingGui) -> RBXScriptSignal?;
+} & GuiTemplate
+
 export type MainGui = {
     new: () -> MainGui;
 
@@ -135,6 +142,9 @@ export type GuiController = {
     TryAddToEnablingQueue: (GuiController, gui: ScreenGui) -> nil;
     ForceEnabling: (GuiController, gui: ScreenGui) -> nil;
 
+    FadingGui: FadingGui;
+    MainGui: MainGui;
+    PopusGui: PopusGui;
     [string]: GuiTemplate;
 }
 --[[========================================================================================]]
