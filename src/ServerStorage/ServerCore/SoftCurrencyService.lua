@@ -35,7 +35,7 @@ function SoftCurrencyService:TrySpentCurrency(player: Player, currencyName: stri
 
 	if spentAmount > currencyObject.Value then
 		SoundRequested:FireClient(player, self._configs.SoundNames.Error)
-		self._services.ServerMessagesSender:SendMessageToPlayer(player, "Error", "Not enough cash for purchase")
+		self._services.ServerMessagesSender:SendMessageToPlayer(player, "Error", string.format("Not enough %s for purchase", currencyName))
 
 		return false
 	end
