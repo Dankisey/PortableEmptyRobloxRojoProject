@@ -1,38 +1,18 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Player = game:GetService("Players").LocalPlayer
 
+--[[ Напрямую по пути: на момент загрузки утилит таблицы utils ещё не существует. ]]
+local LoadModules = require(ReplicatedStorage.Modules.Utils.LoadModules)
+
 local ClientCore = {}
 local InitializingMaxTime = 20
 
 function ClientCore:Start()
 	local controllers = {}
-	local configs = {}
-	local utils = {}
 	local startTime = tick()
 
-	for _, utilsModule in pairs(ReplicatedStorage.Modules.Utils:GetChildren()) do
-		local success, module = pcall(require, utilsModule)
-
-		if not success then
-			warn("Module " .. utilsModule.Name .. " was not loaded: " .. tostring(module))
-
-			continue 
-		end
-
-		utils[utilsModule.Name] = module
-	end
-
-	for _, configModule in pairs(ReplicatedStorage.Configs:GetChildren()) do
-		local success, module = pcall(require, configModule)
-
-		if not success then
-			warn("Module " .. configModule.Name .. " was not loaded: " .. tostring(module))
-
-			continue 
-		end
-
-		configs[configModule.Name] = module
-	end
+	local utils = LoadModules(ReplicatedStorage.Modules.Utils)
+	local configs = LoadModules(ReplicatedStorage.Configs)
 
 	print("Start creating client modules")
 	for _, moduleScript in pairs(script:GetChildren()) do

@@ -19,7 +19,7 @@ function CubicBezier.new(x1: number, y1: number, x2: number, y2: number)
 	self.P1 = Vector2.new(x1, y1)
 	self.P2 = Vector2.new(x2, y2)
 	self.P3 = Vector2.new(1, 1)
-	
+
 	return self
 end
 

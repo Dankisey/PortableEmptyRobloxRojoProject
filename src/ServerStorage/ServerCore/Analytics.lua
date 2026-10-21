@@ -16,13 +16,11 @@ local Analytics = {} :: ServiceTemplate.Type
 -------------------------------------------------------
 -------------------------------------------------------
 
-local function validateEconomyInfo(player, currencyName: string, transactionType: Enum.AnalyticsEconomyTransactionType | string, itemSku: string?) : boolean
-	local isSuccess, endingBalance = pcall(function()
-		return player.Currencies[currencyName].Value
-	end)
+local function validateEconomyInfo(self, player, currencyName: string, transactionType: Enum.AnalyticsEconomyTransactionType | string, itemSku: string?) : boolean
+	local endingBalance = self._services.SoftCurrencyService:GetCurrency(player, currencyName)
 
-	if not isSuccess then
-		warn(player.Name "'s " .. currencyName .. " value object was not found")
+	if endingBalance == nil then
+		warn(player.Name .. "'s " .. currencyName .. " balance is not loaded")
 
 		return false
 	end
@@ -37,7 +35,7 @@ local function validateEconomyInfo(player, currencyName: string, transactionType
 end
 
 function Analytics:LogCurrencySpending(player: Player, currencyName: string, amount: number, ...)
-	local isValid, endingBalance, itemSku, transactionType = validateEconomyInfo(player, currencyName, ...)
+	local isValid, endingBalance, itemSku, transactionType = validateEconomyInfo(self, player, currencyName, ...)
 
 	if not isValid then return end
 
@@ -53,7 +51,7 @@ function Analytics:LogCurrencySpending(player: Player, currencyName: string, amo
 end
 
 function Analytics:LogCurrencyIncome(player: Player, currencyName: string, amount: number, ...)
-	local isValid, endingBalance, itemSku, transactionType = validateEconomyInfo(player, currencyName, ...)
+	local isValid, endingBalance, itemSku, transactionType = validateEconomyInfo(self, player, currencyName, ...)
 
 	if not isValid then return end
 

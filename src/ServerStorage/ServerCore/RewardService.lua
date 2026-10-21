@@ -1,6 +1,5 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Remotes = ReplicatedStorage.Remotes
-local PopupRequested = Remotes.UI.PopupRequested
 local SoundRequested = Remotes.SoundRequested
 
 local ServiceTemplate = require(script.Parent.Parent.ServiceTemplate)
@@ -8,8 +7,15 @@ local RewardService = {} :: ServiceTemplate.Type
 
 local rewardsFunctions = {
 	Cash = function(player: Player, data: {any}, self: ServiceTemplate.Type)
-		player.Currencies.Cash.Value += data.Amount
-		player.TotalStats.TotalCash.Value += data.Amount
+		self._services.SoftCurrencyService:AddCurrency(player, "Cash", data.Amount)
+
+		--[[
+			Поп-ап монет отменён совсем — выглядел плохо. Сама машинерия
+			PopupsGui остаётся под будущие поп-апы, но деньги её не зовут.
+
+			Строка Analytics остаётся закомментированной как была: её включение —
+			отдельное решение, не часть отказа от поп-апа.
+		]]
 		--self._services.Analytics:LogCurrencyIncome(player, "Cash", data.Amount, data.TransactionType, data.Sku)
 	end;
 }

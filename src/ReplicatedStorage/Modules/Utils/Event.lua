@@ -21,10 +21,10 @@ end
 function Event:Subscribe(key: any, callback: (any) -> (), ...: any)
 	if self._callbacks[key] then
 		warn("Event already has a callback with key: " .. tostring(key))
-		
+
 		return
 	end
-	
+
 	local args = table.pack(...)
 
 	if #args == 0 then
@@ -36,15 +36,15 @@ function Event:Subscribe(key: any, callback: (any) -> (), ...: any)
 	self._callbacks[key].Args = args
 end
 
-function Event:Desctroy()
+function Event:Destroy()
 	table.clear(self._callbacks)
 end
 
 function Event.new()
 	local self = setmetatable({}, {__index = Event})
-	
+
 	self._callbacks = {}
-	
+
 	return self
 end
 

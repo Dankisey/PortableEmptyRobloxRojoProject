@@ -7,50 +7,62 @@ local TweenService = game:GetService("TweenService")
 local FadingGui = {}
 
 local function startTween(self, config)
-    if self._currentTween then
-        task.cancel(self._destroyingTask)
-        self._currentTween:Cancel()
-    end
+	if self._currentTween then
+		if self._destroyingTask then
+			pcall(task.cancel, self._destroyingTask)
+			self._destroyingTask = nil
+		end
 
-    self._currentTween = TweenService:Create(self._blackScreen, config.TweenInfo, config.Goal)
-    self._currentTween:Play()
+		self._currentTween:Cancel()
+	end
 
-    self._destroyingTask = task.spawn(function()
-        self._currentTween.Completed:Wait()
-        self._currentTween = nil
-    end)
+	self._currentTween = TweenService:Create(self._blackScreen, config.TweenInfo, config.Goal)
+	self._currentTween:Play()
+
+	self._destroyingTask = task.spawn(function()
+		self._currentTween.Completed:Wait()
+		self._currentTween = nil
+	end)
 end
 
-function FadingGui:FadeOut() : RBXScriptSignal
-    if self._isFadingOn == false then return end
+--[[
+	Оба метода отдают nil, если экран уже в нужном состоянии: ждать нечего.
+	Поэтому тип RBXScriptSignal?, и вызывающий обязан проверить перед :Wait().
+	Раньше аннотация обещала сигнал безусловно, а FadeIn вдобавок печатал warn
+	про nil-твин и тут же индексировал его.
+]]
+function FadingGui:FadeOut() : RBXScriptSignal?
+	if self._isFadingOn == false then return nil end
 
-    self._isFadingOn = false
-    startTween(self, Config.FadeOut)
+	self._isFadingOn = false
+	startTween(self, Config.FadeOut)
 
-    return self._currentTween.Completed
+	return self._currentTween and self._currentTween.Completed
 end
 
-function FadingGui:FadeIn() : RBXScriptSignal
-    if self._isFadingOn then return end
+function FadingGui:FadeIn() : RBXScriptSignal?
+	if self._isFadingOn then return nil end
 
-    self._isFadingOn = true
-    startTween(self, Config.FadeIn)
+	self._isFadingOn = true
+	startTween(self, Config.FadeIn)
 
-    if not self._currentTween then
-        warn("FadeIn: Current tween is nil!")
-    end
+	if not self._currentTween then
+		warn("FadeIn: Current tween is nil!")
 
-    return self._currentTween.Completed
+		return nil
+	end
+
+	return self._currentTween.Completed
 end
 
 function FadingGui:Initialize()
-    self._blackScreen = self.Gui:WaitForChild("BlackScreen") :: Frame
-    self._blackScreen.Position = Config.FadeOut.Goal.Position
+	self._blackScreen = self.Gui:WaitForChild("BlackScreen") :: Frame
+	self._blackScreen.Position = Config.FadeOut.Goal.Position
 end
 
 function FadingGui.new()
 	local self = setmetatable(FadingGui, {__index = GuiTemplate})
-    self._isFadingOn = false
+	self._isFadingOn = false
 
 	self:CreateChildren(script.Name, script:GetChildren())
 

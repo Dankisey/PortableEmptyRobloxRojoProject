@@ -8,16 +8,16 @@ function TimeUtils.IsWeekExpired(timeStamp: number)
 	local weekStart = TimeUtils.TimeReferencePoint
 	local weekEnd = weekStart + TimeUtils.Week
 	local timeNow = os.time()
-	
+
 	while weekStart <= timeNow do
 		if weekEnd >= timeNow then
 			break
 		end
-		
+
 		weekStart = weekEnd
 		weekEnd += TimeUtils.Week
 	end
-	
+
 	return timeStamp < weekStart
 end
 
@@ -51,7 +51,7 @@ function TimeUtils.IsDayExpired(timeStamp: number)
 		dayStart = dayEnd
 		dayEnd += TimeUtils.Day
 	end
-	
+
 	return timeStamp < dayStart
 end
 

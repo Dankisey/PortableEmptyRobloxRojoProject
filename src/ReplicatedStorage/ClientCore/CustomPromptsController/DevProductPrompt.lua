@@ -5,11 +5,11 @@ local Template = require(script.Parent.CustomPromptTemplate)
 local DevProductPrompt = {}
 
 function DevProductPrompt:OnUsed(prompt: ProximityPrompt)
-    local productId = prompt:GetAttribute("ProductId")
+	local productId = prompt:GetAttribute("ProductId")
 
-    if not productId then
-        return warn("ProductId attribute was not found on prompt")
-    end
+	if not productId then
+		return warn("ProductId attribute was not found on prompt")
+	end
 
 	DevProductRequested:FireServer(productId)
 end

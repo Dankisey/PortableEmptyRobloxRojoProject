@@ -3,6 +3,8 @@ local CollectionService = game:GetService("CollectionService")
 
 local GuiController = {}
 
+local InitializingMaxTime = 20 -- тот же потолок, что и у ClientCore
+
 local function tryEnableNextGui(self)
 	if #self._enablingQueue == 0 then return end
 
@@ -54,24 +56,47 @@ function GuiController:AfterPlayerLoaded(player: Player)
 		task.spawn(guiModule.AfterPlayerLoaded, guiModule, player)
 	end
 
+	--[[
+		Реестр связей по картинке. Раньше на каждую картинку заводилась СВОЯ подписка
+		на GetInstanceRemovedSignal, которая рвала связь этой картинки при снятии тега
+		с ЛЮБОЙ другой; сами подписки не отключались никогда.
+	]]
+	local sunrayConnections = {}
+
+	local function stopSunray(image)
+		if not sunrayConnections[image] then return end
+
+		sunrayConnections[image]:Disconnect()
+		sunrayConnections[image] = nil
+	end
+
 	local function onImageAdded(image)
-        local onRenderStepped = RunService.RenderStepped:Connect(function(dt)
+		if sunrayConnections[image] then return end
+
+		sunrayConnections[image] = RunService.RenderStepped:Connect(function()
+			-- картинку могли удалить, не снимая тега
+			if not image.Parent then
+				stopSunray(image)
+
+				return
+			end
+
 			if image.Rotation >= 180 then
 				image.Rotation = -180
 			end
-			image.Rotation += 0.3
+
+			image.Rotation += .3
 		end)
+	end
 
-		CollectionService:GetInstanceRemovedSignal("UISunray"):Connect(function()
-			onRenderStepped:Disconnect()
-		end)
-    end
+	for _, image in CollectionService:GetTagged("UISunray") do
+		onImageAdded(image)
+	end
 
-    for _, image in CollectionService:GetTagged("UISunray") do
-        onImageAdded(image)
-    end
+	CollectionService:GetInstanceAddedSignal("UISunray"):Connect(onImageAdded)
 
-    CollectionService:GetInstanceAddedSignal("UISunray"):Connect(onImageAdded)
+	-- одна подписка на весь тег, а не по одной на картинку
+	CollectionService:GetInstanceRemovedSignal("UISunray"):Connect(stopSunray)
 end
 
 function GuiController:Initialize(player: Player)
@@ -80,7 +105,16 @@ function GuiController:Initialize(player: Player)
 
 	for name, guiModule in pairs(self._guiModules) do
 		task.spawn(function()
-			guiModule:Initialize(player)
+			--[[
+				Без pcall упавший GUI-модуль никогда не попадал в список
+				инициализированных, и ожидание ниже висло вечно.
+			]]
+			local success, err = pcall(guiModule.Initialize, guiModule, player)
+
+			if not success then
+				warn("Error occured while initializing GUI module " .. name .. ":", err)
+			end
+
 			table.insert(initializedGuiModules, name)
 		end)
 
@@ -97,7 +131,25 @@ function GuiController:Initialize(player: Player)
 		end
 	end
 
-	repeat task.wait() until #initializedGuiModules == #guiModuleNames
+	--[[
+		Таймаут обязателен: если хоть один модуль завис на своём WaitForChild,
+		бесконечный repeat утягивал за собой всю инициализацию клиента.
+	]]
+	local elapsedTime = 0
+
+	repeat
+		elapsedTime += task.wait()
+	until (#initializedGuiModules == #guiModuleNames) or (elapsedTime >= InitializingMaxTime)
+
+	if #initializedGuiModules == #guiModuleNames then return end
+
+	warn("Unitialized GUI modules:")
+
+	for _, name in guiModuleNames do
+		if not table.find(initializedGuiModules, name) then
+			warn(name)
+		end
+	end
 end
 
 function GuiController:InjectConfigs(configs)
@@ -140,8 +192,26 @@ function GuiController.new()
 			continue
 		end
 
-		self[child.Name] = module.new()
-		self._guiModules[child.Name] = self[child.Name]
+		--[[
+			Конструктор тоже под pcall: раньше упавший module.new() ронял
+			GuiController.new() целиком, а с ним и весь GuiController как контроллер.
+			То есть один сломанный фрейм убирал с экрана вообще весь интерфейс,
+			а сообщение в консоли указывало на GuiController, не на виновника.
+		]]
+		local created
+
+		success, created = pcall(function()
+			return module.new()
+		end)
+
+		if not success then
+			warn("GUI module " .. child.Name .. " was not created: " .. tostring(created))
+
+			continue
+		end
+
+		self[child.Name] = created
+		self._guiModules[child.Name] = created
 	end
 
 	return self

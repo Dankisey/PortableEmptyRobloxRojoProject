@@ -1,29 +1,11 @@
+--[[
+	Типы, которые нужны и серверу, и клиенту сразу.
+
+	Пусто — это штатное состояние каркаса: общие типы появляются вместе
+	с первой сущностью, которая ездит через ремоут в обе стороны.
+	Типы одной стороны живут в ServerTypes и ClientTypes.
+]]
+
 local SharedTypes = {}
-
-export type BoostsSave = {
-    TemporaryBoosts: {
-        [string]: TemporaryBoostData;
-    };
-    PermanentBoosts: {
-        [string]: boolean;
-    };
-}
-
-export type Quest = {
-	IsRewardClaimed: boolean;
-	IsCompleted: boolean;
-	Description: string;
-	QuestType: string;
-	RewardData: {
-        Icon: string;
-        Rewards: {[string]: any};
-    };
-	Goal: number;
-}
-
-export type TemporaryBoostData = {
-    ModifiedStats: {[string]: number};
-    Duration: number;
-}
 
 return SharedTypes

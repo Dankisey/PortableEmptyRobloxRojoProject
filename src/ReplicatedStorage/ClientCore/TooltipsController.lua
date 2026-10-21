@@ -3,73 +3,76 @@ local ControllerTemplate = require(ReplicatedStorage.Modules.ControllerTemplate)
 
 local TooltipsController = {}
 
-local function getGuiParent(uiObject: GuiObject) : ScreenGui
-    local parent = uiObject
+--[[
+	Проверка на nil обязательна: у объекта, уже вынутого из иерархии, цепочка
+	Parent заканчивается не на game, а на nil — старое условие падало на nil:IsA
+	раньше, чем успевало вернуть nil.
+]]
+local function getGuiParent(uiObject: GuiObject) : ScreenGui?
+	local parent = uiObject.Parent
 
-    repeat
-        parent = parent.Parent
-    until parent:IsA("ScreenGui") or parent == game
+	while parent and parent ~= game do
+		if parent:IsA("ScreenGui") then return parent end
 
-    if parent == game then
-        return nil
-    end
+		parent = parent.Parent
+	end
 
-    return parent
+	return nil
 end
 
 function TooltipsController:RegisterDefaultTooltip(activationObject: GuiObject, tooltipText: string)
-    local gui = getGuiParent(activationObject)
+	local gui = getGuiParent(activationObject)
 
-    if not gui then
-        return warn("Tooltip activation object is not descendant of ScreenGui")
-    end
+	if not gui then
+		return warn("Tooltip activation object is not descendant of ScreenGui")
+	end
 
-    if self._registeredTooltips[activationObject] then
-        for _, connection in pairs(self._registeredTooltips[activationObject]) do
-            connection:Disconnect()
-        end
+	if self._registeredTooltips[activationObject] then
+		for _, connection in pairs(self._registeredTooltips[activationObject]) do
+			connection:Disconnect()
+		end
 
-        table.clear(self._registeredTooltips[activationObject])
-    else
-        self._registeredTooltips[activationObject] = {}
-    end
+		table.clear(self._registeredTooltips[activationObject])
+	else
+		self._registeredTooltips[activationObject] = {}
+	end
 
-    table.insert(self._registeredTooltips[activationObject], activationObject.MouseEnter:Connect(function()
-        if gui.Enabled == false then return end
+	table.insert(self._registeredTooltips[activationObject], activationObject.MouseEnter:Connect(function()
+		if gui.Enabled == false then return end
 
-        if typeof(tooltipText) == "string" then
-            self.DefaultTooltipActivated:Invoke(activationObject, tooltipText)
-        else
-            self.DefaultTooltipActivated:Invoke(activationObject, tooltipText())
-        end
-    end))
+		if typeof(tooltipText) == "string" then
+			self.DefaultTooltipActivated:Invoke(activationObject, tooltipText)
+		else
+			self.DefaultTooltipActivated:Invoke(activationObject, tooltipText())
+		end
+	end))
 
-    table.insert(self._registeredTooltips[activationObject], activationObject.MouseLeave:Connect(function()
-        self.DefaultTooltipDisabled:Invoke(activationObject)
-    end))
+	table.insert(self._registeredTooltips[activationObject], activationObject.MouseLeave:Connect(function()
+		self.DefaultTooltipDisabled:Invoke(activationObject)
+	end))
 
-    table.insert(self._registeredTooltips[activationObject], gui:GetPropertyChangedSignal("Enabled"):Connect(function()
-        if gui.Enabled == false then
-            self.DefaultTooltipDisabled:Invoke(activationObject)
-        end
-    end))
+	table.insert(self._registeredTooltips[activationObject], gui:GetPropertyChangedSignal("Enabled"):Connect(function()
+		if gui.Enabled == false then
+			self.DefaultTooltipDisabled:Invoke(activationObject)
+		end
+	end))
 end
 
 function TooltipsController:RegisterTooltip(activationObject: GuiObject, info: {Type: string})
-    self:RegisterDefaultTooltip(activationObject, info.Text)
+	self:RegisterDefaultTooltip(activationObject, info.Text)
 end
 
 function TooltipsController:InjectUtils(utils)
-    self._utils = utils
-    self.DefaultTooltipActivated = utils.Event.new()
-    self.DefaultTooltipDisabled = utils.Event.new()
+	self._utils = utils
+	self.DefaultTooltipActivated = utils.Event.new()
+	self.DefaultTooltipDisabled = utils.Event.new()
 end
 
 function TooltipsController.new()
-    local self = setmetatable(TooltipsController, {__index = ControllerTemplate})
-    self._registeredTooltips = {}
+	local self = setmetatable(TooltipsController, {__index = ControllerTemplate})
+	self._registeredTooltips = {}
 
-    return self
+	return self
 end
 
 return TooltipsController

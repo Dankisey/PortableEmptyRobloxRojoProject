@@ -5,10 +5,10 @@ local AnimatedGuiTemplate = setmetatable({}, {__index = GuiTemplate})
 AnimatedGuiTemplate.__index = AnimatedGuiTemplate
 
 function AnimatedGuiTemplate:Enable(isForced)
-    self:CancelAnimations()
+	self:CancelAnimations()
 
-    self.MainFrame.Size = UDim2.new(0, 0, 0, 0)
-    GuiTemplate.Enable(self, isForced)
+	self.MainFrame.Size = UDim2.new(0, 0, 0, 0)
+	GuiTemplate.Enable(self, isForced)
 
 	local tweenInfo = TweenInfo.new(
 		0.25,
@@ -20,17 +20,17 @@ function AnimatedGuiTemplate:Enable(isForced)
 
 	local openTween = TweenService:Create(self.MainFrame, tweenInfo, goal)
 
-    table.insert(self._animationTweens, openTween)
+	table.insert(self._animationTweens, openTween)
 
-    openTween.Completed:Connect(function()
-        self:RemoveTween(openTween)
-    end)
+	openTween.Completed:Connect(function()
+		self:RemoveTween(openTween)
+	end)
 
-    openTween:Play()
+	openTween:Play()
 end
 
 function AnimatedGuiTemplate:Disable()
-    self:CancelAnimations()
+	self:CancelAnimations()
 
 	local tweenInfo = TweenInfo.new(
 		0.1,
@@ -42,51 +42,51 @@ function AnimatedGuiTemplate:Disable()
 
 	local closeTween  = TweenService:Create(self.MainFrame, tweenInfo, goal)
 
-    table.insert(self._animationTweens, closeTween)
+	table.insert(self._animationTweens, closeTween)
 
-    closeTween.Completed:Connect(function()
-        self.Gui.Enabled = false
-        self.Disabled:Invoke()
+	closeTween.Completed:Connect(function()
+		self.Gui.Enabled = false
+		self.Disabled:Invoke()
 
-        self:RemoveTween(closeTween)
-    end)
+		self:RemoveTween(closeTween)
+	end)
 
-    closeTween:Play()
+	closeTween:Play()
 end
 
 function AnimatedGuiTemplate:CancelAnimations()
-    if not self._animationTweens then return end
+	if not self._animationTweens then return end
 
-    for _, tween in ipairs(self._animationTweens) do
-        tween:Cancel()
-    end
+	for _, tween in ipairs(self._animationTweens) do
+		tween:Cancel()
+	end
 
-    self._animationTweens = {}
+	self._animationTweens = {}
 end
 
 function AnimatedGuiTemplate:RemoveTween(tween)
-    if not self._animationTweens then return end
+	if not self._animationTweens then return end
 
-    for i, existingTween in ipairs(self._animationTweens) do
-        if existingTween == tween then
-            table.remove(self._animationTweens, i)
-            break
-        end
-    end
+	for i, existingTween in ipairs(self._animationTweens) do
+		if existingTween == tween then
+			table.remove(self._animationTweens, i)
+			break
+		end
+	end
 end
 
 function AnimatedGuiTemplate:Initialize(player: Player)
-    GuiTemplate.Initialize(self, player)
+	GuiTemplate.Initialize(self, player)
 
-    self.MainFrame = self.Gui:FindFirstChildOfClass("Frame")
+	self.MainFrame = self.Gui:FindFirstChildOfClass("Frame")
 
-    if not self.MainFrame then
-        warn("No Frame found in GUI", self.Gui)
-        return
-    end
+	if not self.MainFrame then
+		warn("No Frame found in GUI", self.Gui)
+		return
+	end
 
-    self.InitialSize = self.MainFrame.Size
-    self._animationTweens = {}
+	self.InitialSize = self.MainFrame.Size
+	self._animationTweens = {}
 end
 
 return AnimatedGuiTemplate

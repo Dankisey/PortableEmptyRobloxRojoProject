@@ -6,15 +6,15 @@ export type Type = ClientTypes.ControllerTemplate
 local ControllerTemplate: ClientTypes.ControllerTemplate = {}
 
 function ControllerTemplate:InjectControllers(controllers: ClientTypes.Controllers)
-    self._controllers = controllers
+	self._controllers = controllers
 end
 
 function ControllerTemplate:InjectUtils(utils: UtilsTypes.Utils)
-    self._utils = utils
+	self._utils = utils
 end
 
 function ControllerTemplate:InjectConfigs(configs)
-    self._configs = configs
+	self._configs = configs
 end
 
 return ControllerTemplate

@@ -1,0 +1,41 @@
+{
+  "mcp__Roblox_Studio__multi_edit": [
+    "Памятка по multi_edit (.claude/pitfalls/roblox-studio.md):",
+    "1. `replace_all` МОЛЧА НЕ РАБОТАЕТ: отчёт «edits applied», изменений ноль. Массовые замены — через `.Source` со сверкой.",
+    "2. ТАБЫ В JSON ЛОМАЮТ ВЫЗОВ: буквальный таб в `old_string`/`new_string` даёт `edits: expected array, received string`. Отступы проекта — табы, пиши их как \\t.",
+    "3. `old_string` матчится как ПОДСТРОКА: строка с одним табом совпадёт с концом строки с двумя. Бери кусок с соседними строками.",
+    "4. Сверяй по НОВОМУ тексту и числу его вхождений (ровно одно), а не по отсутствию старого. Проверяй `script_read`: `.Source` из `execute_luau` сразу после правки ОТСТАЁТ.",
+    "5. НЕ СМЕШИВАЙ инструменты на одном файле: срез `.Source` от устаревшего текста молча откатит правку целиком.",
+    "6. Таймаут — не «возможно, прошло»: сначала прочитай файл, потом повторяй.",
+    "7. Новый ModuleScript создаётся здесь: className + пустой `old_string`. У такого скрипта ДОКУМЕНТ РЕДАКТОРА: запись `.Source` из `execute_luau` до Play НЕ ДОХОДИТ (Play взял заглушку `return {}` при зелёном loadstring). Текст — через `ScriptEditorService:UpdateSourceAsync`, сверка — `script_read`, финал — Play.",
+    "8. После правки — компиляция плейса по `ScriptEditorService:GetEditorSource`, а не `.Source` (он отстаёт, у записанных `UpdateSourceAsync` ПУСТ — ложный «0 ошибок»), и `get_console_output`. Продублированный `export type` она не ловит."
+  ],
+  "mcp__Roblox_Studio__execute_luau": [
+    "Памятка по execute_luau (.claude/pitfalls/roblox-studio.md):",
+    "1. ОТДЕЛЬНАЯ VM, `require` проектного модуля ЗАПРЕЩЁН (Capabilities). Только `loadstring(module.Source)`; зависимости — варargs'ами. Живые синглтоны отсюда не прочитать: мир, GameValues, атрибуты или проба-скрипт.",
+    "2. `.Source` и документ редактора — разные тексты: `.Source` ОТСТАЁТ от правок `multi_edit`, а запись `.Source` в скрипт, созданный `multi_edit`, не доходит до Play. Такие скрипты пиши `ScriptEditorService:UpdateSourceAsync` и сверяй `script_read`; один файл — один инструмент. Читать текст для проверок — `GetEditorSource`: `.Source` правленых отстаёт, у записанных `UpdateSourceAsync` пуст.",
+    "3. Сигналы отложены (Deferred): между записью и чтением результата обработчика — `task.wait(.5)`.",
+    "4. `source:sub` режет по БАЙТАМ: граница посреди кириллицы вешает ответ. Режь по строкам.",
+    "5. В пробе `probe.Source = [[...]]` любой `--[[` закрывает строку: внешняя обёртка на уровень глубже (`[===[ ... ]===]`). В Play `loadstring` недоступен.",
+    "6. `gsub(p, new:gsub(...))` передаёт счётчик третьим аргументом = ноль замен. Замену бери в скобки.",
+    "7. `Instance.new(\"ModuleScript\")` падает на Capabilities — скрипты создавай `multi_edit`, отсюда только папки.",
+    "8. Файлы и сеть закрыты (`lacking capability Network`): выгрузка Source — инструментом Write с контрольной суммой (.claude/pitfalls/source-transfer.md).",
+    "9. Численные метрики уже врали (рэгдолл «включён», тело летит отдельно). Физику, анимации, тайминги и UI отдавай человеку. Тестовые значения конфигов — верни и сверь `.Source`.",
+    "10. `GetBoundingBox` меряет по ПИВОТУ, `ScaleTo` абсолютный, `WorldPivot` игнорируется при PrimaryPart.",
+    "11. Правки могут молча откатиться (Ctrl+Z человека, перезагрузка плейса) — проверяй наличие объекта перед использованием."
+  ],
+  "mcp__Roblox_Studio__script_grep": [
+    "Памятка по script_grep (.claude/pitfalls/roblox-studio.md):",
+    "1. НЕ СЧИТАЕТ ПУСТЫЕ СТРОКИ: номера меньше настоящих. Адрес строки даёт `script_read`.",
+    "2. Запрос — Luau-ПАТТЕРН: `( ) % . - + [ ]` ломают поиск, и пустой ответ читается как «этого нет». Ищи кусок без знаков.",
+    "3. В Play видит только КЛИЕНТСКИЙ DataModel, `ServerStorage` не видит. Код читай в Edit."
+  ],
+  "mcp__Roblox_Studio__start_stop_play": [
+    "Памятка перед Play (.claude/pitfalls/README.md):",
+    "1. Просили не запускать Play — не запускай. Чужой Play не останавливай.",
+    "2. Правки Edit подхватываются только новым запуском; тестовые значения конфигов ставятся в файле ДО Play.",
+    "3. `TeleportService` в Studio всегда падает с `Request Context Failure` — норма.",
+    "4. Шум ProfileStore про MessagingService/BindToClose в Edit — артефакт режима.",
+    "5. После своих циклов не оставляй Studio в Play."
+  ]
+}

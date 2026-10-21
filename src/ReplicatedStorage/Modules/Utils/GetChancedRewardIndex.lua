@@ -1,7 +1,13 @@
 local random = Random.new()
 
 local function getChancedRewardIndex(rewardsConfig)
-	local randomNumber = random:NextNumber()
+	local total = 0
+	
+	for i, reward in ipairs(rewardsConfig) do
+		total += reward.Chance
+	end
+	
+	local randomNumber = random:NextNumber(0, total)
 	local rewardIndex = 0
 
 	for i, reward in ipairs(rewardsConfig) do

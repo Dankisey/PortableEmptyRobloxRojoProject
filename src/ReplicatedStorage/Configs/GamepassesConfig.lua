@@ -1,7 +1,7 @@
-local Gamepasses = {}
+local GamepassesConfig = {}
 
-Gamepasses.Attributes = {
+GamepassesConfig.Attributes = {
 
 }
 
-return Gamepasses
+return GamepassesConfig

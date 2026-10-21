@@ -1,21 +1,69 @@
-local NumberPostfixes = require(game:GetService("ReplicatedStorage").Configs.NumberPostfixes)
+local NumberPostfixes = {
+	[1] = "";
+	[2] = "K";
+	[3] = "M";
+	[4] = "B";
+	[5] = "T";
+	[6] = "Qa";
+	[7] = "Qi";
+	[8] = "Sx";
+	[9] = "Sp";
+	[10] = "Oc";
+	[11] = "Nm";
+	[12] = "Dc";
+	[13] = "Udc";
+	[14] = "Ddc";
+	[15] = "Tdc";
+	[16] = "Qadc";
+	[17] = "Qidc";
+	[18] = "Sxdc";
+	[19] = "Spdc";
+	[20] = "Ocdc";
+	[21] = "Nmdc";
+	[22] = "Vg";
+	[23] = "Uvg";
+	[24] = "Dvg";
+	[25] = "Tvg";
+	[26] = "Qavg";
+	[27] = "Qivg";
+	[28] = "Sxvg";
+	[29] = "Spvg";
+	[30] = "Ocvg";
+	[31] = "Nmvg";
+	[32] = "Tg";
+}
 
-local function formatNumber(value: number, decimals: number?) : string
-	if value == math.huge then
+local SignificantDigits = 3 -- 1.38K, 13.8K, 138K; до тысячи — целое
+
+--[[ отбрасывание, а не округление: 999.9K не превращается в «1000K», а прогресс не забегает вперёд ]]
+local function formatNumber(value: number): string
+	if value ~= value or math.abs(value) == math.huge then
 		return "???"
 	end
 
-	decimals = decimals or 1
+	local sign = if value < 0 then "-" else ""
+	local absolute = math.abs(value)
 
-	local exponent = math.floor(math.log(math.max(1, math.abs(value)), 1000))
-	local postfix = NumberPostfixes[1 + exponent] or ("e+" .. exponent)
-	local normal = math.floor(value * ((10 ^ decimals) / (1000 ^ exponent))) / (10 ^ decimals)
-
-	if normal % 1 == 0 then
-		decimals = 0
+	if absolute < 1000 then
+		return sign .. math.floor(absolute)
 	end
 
-	return ("%." .. decimals .. "f%s"):format(normal, postfix)
+	local exponent = 0
+
+	while absolute >= 1000 ^ (exponent + 1) do
+		exponent += 1
+	end
+
+	local normal = absolute / 1000 ^ exponent
+	local decimals = math.max(0, SignificantDigits - #tostring(math.floor(normal)))
+	local scale = 10 ^ decimals
+	local shown = ("%." .. decimals .. "f"):format(math.floor(normal * scale) / scale)
+
+	if decimals > 0 then
+		shown = shown:gsub("0+$", ""):gsub("%.$", "")
+	end
+
+	return sign .. shown .. (NumberPostfixes[1 + exponent] or ("e+" .. exponent * 3))
 end
 
 return formatNumber

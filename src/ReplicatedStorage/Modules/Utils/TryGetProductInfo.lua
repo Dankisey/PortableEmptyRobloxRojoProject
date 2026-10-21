@@ -7,7 +7,7 @@ local TryGetProductInfo = function(id: number, infoType: Enum.InfoType)
 	local result = nil
 
 	repeat
-		local isSuccess, value = pcall(MarketplaceService.GetProductInfo, MarketplaceService, id, infoType)
+		local isSuccess, value = pcall(MarketplaceService.GetProductInfoAsync, MarketplaceService, id, infoType)
 
 		if not isSuccess then
 			warn("An error occured while getting product info: " .. tostring(value))

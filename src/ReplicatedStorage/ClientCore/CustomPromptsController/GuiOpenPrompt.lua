@@ -4,8 +4,8 @@ local Template = require(script.Parent.CustomPromptTemplate)
 local GuiOpenPrompt = {}
 
 function GuiOpenPrompt:OnUsed(prompt: ProximityPrompt)
-    local guiName = prompt:GetAttribute("GuiName")
-    self._guiController[guiName]:Enable(true)
+	local guiName = prompt:GetAttribute("GuiName")
+	self._guiController[guiName]:Enable(true)
 end
 
 function GuiOpenPrompt.new(controllers)

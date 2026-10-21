@@ -10,17 +10,17 @@ local function getPlayerIcon(userId: number) : string
 
 		if not success then
 			warn("Player thumbnnail failed: " .. tostring(result))
-            task.wait(2 * (tries + 1))
-        else
-            imageId = result
-        end
+			task.wait(2 * (tries + 1))
+		else
+			imageId = result
+		end
 
 		tries +=1
 	until success or tries == 3
 
-    if not imageId then
-        imageId = baseImage
-    end
+	if not imageId then
+		imageId = baseImage
+	end
 
 	return imageId
 end
