@@ -1,25 +1,14 @@
---[[
-	Работа с горизонтальной проекцией векторов.
-
-	Высота в сравнениях только мешает: враг выше рыбы и ниже игрока на берегу,
-	а спот лежит на поверхности воды. Маска и расстояние были размножены
-	по пяти файлам, поэтому живут здесь.
-]]
 local FlatVector = {}
 
 FlatVector.Mask = Vector3.new(1, 0, 1)
 
---[[ Минимальная длина, ниже которой нормализация дала бы NaN. ]]
-local MinMagnitude = .05
+local MinMagnitude = .05 -- below this, normalizing would give NaN
 
 function FlatVector.Distance(a: Vector3, b: Vector3): number
 	return ((a - b) * FlatVector.Mask).Magnitude
 end
 
---[[
-	Нормализованная плоская проекция вектора. Если проекция выродилась
-	(точки совпали или вектор смотрит строго вверх) — отдаём запасное направление.
-]]
+-- returns fallback when the flat projection is degenerate (same points or a vertical vector)
 function FlatVector.Flatten(vector: Vector3, fallback: Vector3?): Vector3
 	local flat = vector * FlatVector.Mask
 

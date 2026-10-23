@@ -1,13 +1,13 @@
-# Справка систем
+# Systems reference
 
-Фактическое устройство кода в плейсе. Правда — Source в Studio; при расхождении справка правится в той же задаче. Требования к правкам — в [rules](../../rules/), причины — в [решениях](../../decisions.md).
+The actual structure of the code in the place. The truth is Source in Studio; on a mismatch the reference is fixed in the same task. Edit requirements are in [rules](../../rules/), reasons in [decisions](../../decisions.md).
 
-| Файл | Что внутри |
+| File | Content |
 |---|---|
-| [framework.md](framework.md) | DI, порядок старта, шаблон сервиса, GUI-контракт, `Event`, `SpawnerTemplate` |
-| [code-map.md](code-map.md) | Дерево плейса, сервисы, контроллеры, утилиты, конфиги, инфраструктура вне ядер |
-| [public-api.md](public-api.md) | Публичные методы каркаса и их контракты на йилд |
-| [saves.md](saves.md) | Разделы сервисов и атрибуты игрока, ProfileStore, автосейв, `/wipe`, покупки |
-| [remotes-and-values.md](remotes-and-values.md) | Ремоуты, `GameValues`, атрибуты игрока, управление, тулы, кнопки, камера |
+| [framework.md](framework.md) | DI, start order, service template, GUI contract, `Event`, `SpawnerTemplate` |
+| [code-map.md](code-map.md) | Place tree, services, controllers, utilities, configs, infrastructure outside cores, admin panel |
+| [public-api.md](public-api.md) | Public framework methods and their yield contracts |
+| [saves.md](saves.md) | Service sections and player attributes, ProfileStore, autosave, wipe, purchases |
+| [remotes-and-values.md](remotes-and-values.md) | Remotes, `GameValues`, player attributes, controls, tools, buttons, camera |
 
-Состояние: чистый каркас шаблона `Empty Project`, 93 скрипта. Добавил игровую систему — заведи её справку здесь и строку в таблице.
+State: the clean `Empty Project` framework. A new game system gets its reference here and a line in the table.

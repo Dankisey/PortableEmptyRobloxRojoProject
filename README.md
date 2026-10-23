@@ -1,30 +1,32 @@
-# Шаблон Roblox-проекта
+# Roblox project template
 
-Каркас Roblox-проекта. Код живёт в плейсе-шаблоне: локально `Empty.rbxl` рядом с этим файлом, в облаке — `Empty Project` (`86416691264868`). Здесь — документация агента в раскладке `.claude/`, готовая к копированию в новый проект.
+A Roblox project framework. The code lives in the template place: locally `Empty.rbxl` next to this file, in the cloud — `Empty Project` (`86416691264868`). Here is the agent documentation in the `.claude/` layout, ready to copy into a new project.
 
-| Что | Куда кладётся в новом проекте |
+| What | Where it goes in a new project |
 |---|---|
-| [`CLAUDE.md`](CLAUDE.md) | корень проекта; заполнить `<угловые скобки>` |
-| [`.claude/`](.claude/README.md) | целиком: правила, решения, грабли, справка систем, хук-памятки MCP, `settings.json` |
-| [`tools/documentation/`](tools/documentation/check-agent-docs.ps1) | проверка документации |
-| `backup/` | не копируется: архив самого шаблона |
+| [`CLAUDE.md`](CLAUDE.md) | project root; fill in the `<angle brackets>` |
+| [`.claude/`](.claude/README.md) | as a whole: rules, decisions, pitfalls, systems reference, principles, MCP and principles hooks, `settings.json` |
+| [`tools/documentation/`](tools/documentation/check-agent-docs.ps1) | documentation check |
+| `backup/` | not copied: the template's own archive |
 
-## Что в шаблоне
+## What the template has
 
-- Свой DI: `ServerCore` / `ClientCore`, сервис = ModuleScript в ядре ([framework](.claude/docs/systems/framework.md)).
-- Сейв: ProfileStore, каждое поле — раздел сервиса-владельца, клиенту — атрибуты игрока; `/wipe` для `DevelopersConfig` ([saves](.claude/docs/systems/saves.md)).
-- Монетизация: чеки дев-продуктов и геймпассов, обработчики без йилда.
-- Рэгдолл на конструктивной R15: сервер держит состояние, клиент делает физику.
-- Тулы без `Tool.Activated`, тап в любую точку под флагом, кнопки на `InputBegan` с отскоком и удержанием, подпись клавиши по `PreferredInput`.
-- `WorldQuery`, `CollisionConfig`, `SpawnerTemplate`, утилиты ([карта кода](.claude/docs/systems/code-map.md)).
+- Own DI: `ServerCore` / `ClientCore`, a service is a ModuleScript in the core ([framework](.claude/docs/systems/framework.md)).
+- Saves: ProfileStore, every field is a section of its owning service, the client gets player attributes ([saves](.claude/docs/systems/saves.md)).
+- Monetization: developer product and game pass receipts, handlers without yields; free developer purchases behind a server switch, off by default.
+- Admin panel for `DevelopersConfig` only: add cash, wipe the save, switch free developer purchases ([code map](.claude/docs/systems/code-map.md#admin-panel-serverstorageadmingui)).
+- Ragdoll on the constructive R15: the server holds the state, the client does the physics.
+- Tools without `Tool.Activated`, tap anywhere behind a flag, buttons on `InputBegan` with bounce and hold, key labels by `PreferredInput`, landscape only.
+- `WorldQuery`, `CollisionConfig`, `SpawnerTemplate`, utilities ([code map](.claude/docs/systems/code-map.md)).
+- Rules for code style, interface and animation, with the [animation](.claude/docs/animation-principles.md) and [UI](.claude/docs/ui-principles.md) principles.
 
-Ни один скрипт не знает ни одного игрового имени. Что заведомо не доделано — [долги](.claude/docs/debts.md).
+No script knows a single game name. What is knowingly unfinished — [debts](.claude/docs/debts.md).
 
-## Репозиторий
+## Repository
 
-[GitHub](https://github.com/Dankisey/PortableEmptyRobloxRojoProject): документация, `Empty.rbxl` и `src/` — снимок скриптов плейса в раскладке Rojo для чтения и диффов. Правда — в плейсе: `src/` содержит только скрипты и папки, разметка GUI, ремоуты и ассеты есть только в `Empty.rbxl`, поэтому `rojo serve`/`rojo build` из `src/` рабочий плейс не соберут.
+[GitHub](https://github.com/Dankisey/PortableEmptyRobloxRojoProject): documentation, `Empty.rbxl` and `src/` — a snapshot of the place scripts in a Rojo layout for reading and diffs. The truth is in the place: `src/` has only scripts and folders, GUI layout, remotes and assets exist only in `Empty.rbxl`, so `rojo serve`/`rojo build` from `src/` does not build a working place.
 
-Обновление снимка (Python 3.14+, `rojo`), из корня клона репозитория после `File → Save` плейса:
+Updating the snapshot (Python 3.14+, `rojo`), from the repository clone root after `File → Save` of the place:
 
     rm -rf src
     python -I tools/rbxl-export/export_rbxl.py Empty.rbxl src
@@ -32,16 +34,23 @@
     python -I tools/rbxl-export/verify_build.py build.rbxl Empty.rbxl
     rojo sourcemap default.project.json -o sourcemap.json
 
-`export_rbxl.py` сверяет записанные файлы побайтово с плейсом; `verify_build.py` — что сборка из `src/` даёт те же скрипты с тем же классом и текстом (код выхода 1 при расхождении). `build.rbxl` не коммитится.
+`export_rbxl.py` compares the written files byte by byte with the place; `verify_build.py` checks that a build from `src/` gives the same scripts with the same class and text (exit code 1 on a mismatch). `build.rbxl` is not committed.
 
-## Как заводить новый проект
+## Starting a new project
 
-1. Скопировать плейс-шаблон (`File → Save As` или копия в Creator Hub) и **опубликовать** его: неопубликованный плейс роняет `Monetization` в Play.
-2. Скопировать в корень нового проекта `CLAUDE.md`, `.claude/` и `tools/`. Заполнить `CLAUDE.md`, [concept](.claude/docs/concept.md) и [план](.claude/docs/roadmap-to-prototype.md).
-3. Проверить `SavesConfig.DataStoreName` и `GetProfileKey`: у второго плейса того же юниверса они обязаны совпадать, а `ServerStorage.ProfileStore` — быть одинаковым.
-4. `SavesConfig.KickOnLoadFail`: `true` для игрового плейса, `false` для лобби и меню.
-5. Заполнить `DevelopersConfig` UserId разработчиков и тестеров (бесплатные dev-покупки и `/wipe`).
-6. Первый свой сервис — новый ModuleScript в `ServerCore` плюс экспорт типа и строка в `ServerTypes.Services`.
-7. Запустить проверку документации:
+1. Copy the template place (`File → Save As` or a copy in Creator Hub) and **publish** it: saves and purchases need a published place.
+2. Copy `CLAUDE.md`, `.claude/` and `tools/` into the new project root. Fill in `CLAUDE.md`, the [concept](.claude/docs/concept.md) and the [plan](.claude/docs/roadmap-to-prototype.md).
+3. Check `SavesConfig.DataStoreName` and `GetProfileKey`: a second place of the same universe must match them, and `ServerStorage.ProfileStore` must be the same.
+4. `SavesConfig.KickOnLoadFail`: `true` for a gameplay place, `false` for a lobby or menu.
+5. Fill `DevelopersConfig` with the UserIds of developers and testers (admin panel and free developer purchases).
+6. The first own service is a new ModuleScript in `ServerCore` plus a type export and an entry in `ServerTypes.Services`.
+7. Run the documentation check:
 
        powershell -NoProfile -ExecutionPolicy Bypass -File tools/documentation/check-agent-docs.ps1
+
+## Before release
+
+- `SavesConfig.DataStoreName` = `PlayersSavesData`, `KickOnLoadFail` = `true`; with a second place — a shared key and the same `ProfileStore` in both.
+- On release day the "save fields without migrations" rule is lifted ([saves-and-monetization](.claude/rules/saves-and-monetization.md)); every later schema change needs a migration.
+- `DeveloperPurchasesEnabled` on `Monetization` stays `false` in the place.
+- The game icon, name and the empty-on-purpose stubs ([code map](.claude/docs/systems/code-map.md#empty-on-purpose)) are filled.

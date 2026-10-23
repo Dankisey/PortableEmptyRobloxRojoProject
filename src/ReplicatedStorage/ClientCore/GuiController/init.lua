@@ -3,7 +3,7 @@ local CollectionService = game:GetService("CollectionService")
 
 local GuiController = {}
 
-local InitializingMaxTime = 20 -- тот же потолок, что и у ClientCore
+local InitializingMaxTime = 20 -- seconds, the same limit as ClientCore
 
 local function tryEnableNextGui(self)
 	if #self._enablingQueue == 0 then return end
@@ -43,11 +43,11 @@ function GuiController:TryAddToEnablingQueue(gui: ScreenGui)
 	elseif not table.find(self._enablingQueue, gui) then
 		table.insert(self._enablingQueue, gui)
 
-		local comprassion = function(gui1: ScreenGui, gui2: ScreenGui)
+		local compareByDisplayOrder = function(gui1: ScreenGui, gui2: ScreenGui)
 			return gui1.DisplayOrder > gui2.DisplayOrder
 		end
 
-		table.sort(self._enablingQueue, comprassion)
+		table.sort(self._enablingQueue, compareByDisplayOrder)
 	end
 end
 
@@ -56,11 +56,7 @@ function GuiController:AfterPlayerLoaded(player: Player)
 		task.spawn(guiModule.AfterPlayerLoaded, guiModule, player)
 	end
 
-	--[[
-		Реестр связей по картинке. Раньше на каждую картинку заводилась СВОЯ подписка
-		на GetInstanceRemovedSignal, которая рвала связь этой картинки при снятии тега
-		с ЛЮБОЙ другой; сами подписки не отключались никогда.
-	]]
+	--[[ one connection per image and one removal subscription for the whole tag ]]
 	local sunrayConnections = {}
 
 	local function stopSunray(image)
@@ -74,7 +70,7 @@ function GuiController:AfterPlayerLoaded(player: Player)
 		if sunrayConnections[image] then return end
 
 		sunrayConnections[image] = RunService.RenderStepped:Connect(function()
-			-- картинку могли удалить, не снимая тега
+			--[[ the image may be destroyed without removing the tag ]]
 			if not image.Parent then
 				stopSunray(image)
 
@@ -95,7 +91,6 @@ function GuiController:AfterPlayerLoaded(player: Player)
 
 	CollectionService:GetInstanceAddedSignal("UISunray"):Connect(onImageAdded)
 
-	-- одна подписка на весь тег, а не по одной на картинку
 	CollectionService:GetInstanceRemovedSignal("UISunray"):Connect(stopSunray)
 end
 
@@ -105,14 +100,11 @@ function GuiController:Initialize(player: Player)
 
 	for name, guiModule in pairs(self._guiModules) do
 		task.spawn(function()
-			--[[
-				Без pcall упавший GUI-модуль никогда не попадал в список
-				инициализированных, и ожидание ниже висло вечно.
-			]]
+			--[[ without pcall a failed module never reaches the initialized list and the wait below hangs ]]
 			local success, err = pcall(guiModule.Initialize, guiModule, player)
 
 			if not success then
-				warn("Error occured while initializing GUI module " .. name .. ":", err)
+				warn("Error occurred while initializing GUI module " .. name .. ":", err)
 			end
 
 			table.insert(initializedGuiModules, name)
@@ -131,10 +123,7 @@ function GuiController:Initialize(player: Player)
 		end
 	end
 
-	--[[
-		Таймаут обязателен: если хоть один модуль завис на своём WaitForChild,
-		бесконечный repeat утягивал за собой всю инициализацию клиента.
-	]]
+	--[[ one module stuck on WaitForChild would otherwise hang the whole client start ]]
 	local elapsedTime = 0
 
 	repeat
@@ -143,7 +132,7 @@ function GuiController:Initialize(player: Player)
 
 	if #initializedGuiModules == #guiModuleNames then return end
 
-	warn("Unitialized GUI modules:")
+	warn("Uninitialized GUI modules:")
 
 	for _, name in guiModuleNames do
 		if not table.find(initializedGuiModules, name) then
@@ -192,12 +181,7 @@ function GuiController.new()
 			continue
 		end
 
-		--[[
-			Конструктор тоже под pcall: раньше упавший module.new() ронял
-			GuiController.new() целиком, а с ним и весь GuiController как контроллер.
-			То есть один сломанный фрейм убирал с экрана вообще весь интерфейс,
-			а сообщение в консоли указывало на GuiController, не на виновника.
-		]]
+		--[[ one broken frame constructor would otherwise remove the whole interface and blame GuiController ]]
 		local created
 
 		success, created = pcall(function()

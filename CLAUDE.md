@@ -1,89 +1,92 @@
 # CLAUDE.md
 
-Инструкции Claude Code для `<Название игры>`. Перед началом любой задачи прочитай целиком и примени раздел «Рабочий процесс»; затем прочитай правила затронутых областей из таблицы ниже.
+Claude Code instructions for `<Game name>`. Before any task, read this file in full and apply the Workflow section; then read the rules of the affected areas from the table below.
 
-> Заготовка из шаблона. Заполни всё в `<угловых скобках>`, опиши игру в [concept](.claude/docs/concept.md), вехи — в [плане](.claude/docs/roadmap-to-prototype.md). Эту строку удали.
+> Template stub. Fill in everything in `<angle brackets>`, describe the game in [concept](.claude/docs/concept.md) and the milestones in the [plan](.claude/docs/roadmap-to-prototype.md). Delete this line.
 
-## Проект
+## Project
 
-`<Название игры>` — `<одним абзацем: что делает игрок, ради чего, чем заканчивается сессия>`. Замысел — [concept.md](.claude/docs/concept.md), план — [roadmap-to-prototype.md](.claude/docs/roadmap-to-prototype.md), открытый остаток — [debts.md](.claude/docs/debts.md).
+`<Game name>` — `<one paragraph: what the player does, why, and how a session ends>`. Concept — [concept.md](.claude/docs/concept.md), plan — [roadmap-to-prototype.md](.claude/docs/roadmap-to-prototype.md), open work — [debts.md](.claude/docs/debts.md).
 
-Плейс собран из шаблона `Empty Project`: свой DI, сейв на разделах сервисов и атрибутах игрока (ProfileStore), монетизация, рэгдолл, тулы, GUI-каркас. Устройство — [справка систем](.claude/docs/systems/README.md).
+The place is built from the `Empty Project` template: own DI, saves on service sections and player attributes (ProfileStore), monetization, admin panel, ragdoll, tools, GUI framework. How it works — [systems reference](.claude/docs/systems/README.md).
 
-## Обязательные ограничения
+## Required constraints
 
-Если задача требует нарушить ограничение, остановись и спроси.
+If a task requires breaking a constraint, stop and ask.
 
-1. Правда — Source в Studio → [справка систем](.claude/docs/systems/README.md) → решения и история. Числа баланса читать из свежих конфигов, а не из документов.
-2. Rojo и git нет. Код и разметка живут в Studio, правки через MCP; документация — только локально здесь, архив — `backup/`.
-3. Сервер авторитетен: клиент шлёт намерение, сервер проверяет дистанцию, кулдаун, время, баланс и принадлежность объекта игроку; начисления валюты и прогресса — только сервер, ровно один раз. Клиент рисует эффекты и UI. Исключение — физика персонажа у клиента; сервер держит состояние и рассылает сигналы.
-4. Постоянные анимации и эффекты заводятся на клиенте; состояние сцены передаётся атрибутами и `Value`.
-5. DI грузит только прямых детей ядра; одинаковые имена молча перетирают друг друга. Новый сервис/контроллер — экспорт типа, `Services`/`Controllers` и [карта кода](.claude/docs/systems/code-map.md) в той же задаче.
-6. Числа баланса и контента — в конфигах с одним источником; новый предмет, враг или уровень добавляется записью в конфиг без правки логики.
-7. Обработчик покупки не йилдит и не пишет в `DataStore`; про ProfileStore знает только `SavesLoader`. До релиза поля сейва меняются без миграций.
-8. GUI-разметкой владеет Studio: статические `Position`/`Size`/`AnchorPoint` кодом не перезаписывать; новый `ScreenGui` — `ResetOnSpawn = false`; ввод мыши в центре экрана не топить. Основная платформа — телефоны.
-9. Всё, по чему рейкастят, сталкивается с `Default`; вода и земля — только через `WorldQuery`. Временные физические объекты ограничены числом и временем жизни.
-10. Аудитория включает детей: контент и механики age-appropriate. Утверждения о правилах платформы Roblox помечать как требующие проверки в актуальной документации.
-11. Просили не запускать Play — не запускай; чужой Play не останавливай. Задачу и веху закрывает пользователь.
+1. Truth order: Source in Studio → [systems reference](.claude/docs/systems/README.md) → decisions and history. Read balance numbers from current configs, not from documents.
+2. No Rojo and no git. Code and layout live in Studio and are edited through MCP; documentation lives only here locally. Code rollback is the place version history.
+3. The server is authoritative: the client sends intent, the server checks distance, cooldown, time, balance and that the object belongs to the player; currency and progress are granted only by the server, exactly once. The client draws effects and UI. Exception: character physics belongs to the client; the server holds the state and broadcasts signals.
+4. Permanent animations and effects are started on the client; scene state travels through attributes and `Value` instances.
+5. DI loads only direct children of a core; equal names silently overwrite each other. A new service or controller needs a type export, `Services`/`Controllers` and the [code map](.claude/docs/systems/code-map.md) in the same task.
+6. Balance and content numbers live in configs with a single source; a new item, enemy or level is a config entry without logic changes.
+7. A purchase handler never yields and never writes to `DataStore`; only `SavesLoader` knows about ProfileStore. Before release, save fields change without migrations.
+8. Studio owns the GUI layout: the source of truth is a prepared template, code only clones prepared templates and never overwrites static `Position`/`Size`/`AnchorPoint`; a new `ScreenGui` has `ResetOnSpawn = false`; mouse input in the screen center is never sunk. Phones are the main platform. Details — [ui](.claude/rules/ui.md).
+9. Everything that is raycast against collides with `Default`; water and ground only through `WorldQuery`. Temporary physical objects are limited in count and lifetime.
+10. The audience includes children: content and mechanics are age-appropriate. Claims about Roblox platform rules are marked as needing a check in the current documentation.
+11. If asked not to start Play, do not start it; never stop someone else's Play. Only the user closes a task or a milestone.
 
-Одна задача — один путь решения. Второй путь для того же допустим только с причиной в решениях и сроком унификации.
+One task, one solution path. A second path for the same job is allowed only with a reason in decisions and a deadline for unification.
 
-## Где работать
+## Where to work
 
-| Место | Назначение |
+| Place | Purpose |
 |---|---|
-| `<Название>` — PlaceId `<placeId>`, GameId `<gameId>` | Вся разработка. `studio_id` — через `list_roblox_studios` по PlaceId в имени окна: рядом бывают открыты чужие плейсы |
-| `ServerStorage.ServerCore` / `ReplicatedStorage.ClientCore` | Сервисы / контроллеры; устройство — [framework](.claude/docs/systems/framework.md) |
-| `ReplicatedStorage.Configs` | Все числа баланса и контента |
-| `.claude/` | Правила, решения, грабли, справка, хуки; раскладка — [README](.claude/README.md) |
-| `tools/documentation/` | Проверка документации |
-| `tools/rbxl-export/` | Выгрузка скриптов из сохранённого `.rbxl` в раскладку Rojo и сверка через `rojo build` |
-| `backup/` | Архив: выгрузки Source, закрытые планы. Правил не задаёт |
+| `<Name>` — PlaceId `<placeId>`, GameId `<gameId>` | All development. Pick `studio_id` with `list_roblox_studios` by the PlaceId in the window name: other places are often open next to it |
+| `ServerStorage.ServerCore` / `ReplicatedStorage.ClientCore` | Services / controllers; how they work — [framework](.claude/docs/systems/framework.md) |
+| `ServerStorage.AdminGui` | Admin panel, given only to developers — [decision](.claude/decisions/framework.md#admin-panel-outside-di) |
+| `ReplicatedStorage.Configs` | All balance and content numbers |
+| `.claude/` | Rules, decisions, pitfalls, reference, hooks; layout — [README](.claude/README.md) |
+| `tools/documentation/` | Documentation check |
+| `tools/rbxl-export/` | Export scripts from a saved `.rbxl` into a Rojo layout and verify with `rojo build` |
+| `backup/` | Archive of closed plans. Sets no rules |
 
-## Какие правила читать
+## Which rules to read
 
-`workflow` и `code-style` Claude Code грузит всегда — у них нет `paths`. Остальные правила читай явно по таблице. Код живёт в Studio, и `paths` срабатывает только на локальных документах. Памятки по инструментам MCP приезжают хуком в момент вызова.
+Claude Code always loads `workflow` and `code-style`: they have no `paths`. Read the other rules explicitly from the table. Code lives in Studio, and `paths` fires only on local documents. Hooks deliver MCP tool reminders and the animation and UI principles at the moment of the call.
 
-| Область | Правило в .claude/rules/ |
+| Area | Rule in .claude/rules/ |
 |---|---|
-| Любая задача: разговор, вопросы, проверки, отчёт | [workflow.md](.claude/rules/workflow.md) |
-| Любой Luau | [code-style.md](.claude/rules/code-style.md) |
-| Studio, MCP, перенос Source, хуки, инструменты | [project-setup.md](.claude/rules/project-setup.md) |
-| DI, сервер/клиент, владельцы состояния, типы, ремоуты | [architecture.md](.claude/rules/architecture.md) |
-| Сейв, ProfileStore, разделы, покупки, валюта | [saves-and-monetization.md](.claude/rules/saves-and-monetization.md) |
-| Тулы, кнопки, клавиши, GUI, камера, мобилки | [input-and-ui.md](.claude/rules/input-and-ui.md) |
-| Рэгдолл, коллизии, рейкасты, обломки, модели, анимации | [character-physics.md](.claude/rules/character-physics.md) |
-| Документация, индексы, хуки | [documentation.md](.claude/rules/documentation.md) |
+| Any task: conversation, questions, checks, report | [workflow.md](.claude/rules/workflow.md) |
+| Any Luau | [code-style.md](.claude/rules/code-style.md) |
+| Studio, MCP, Source transfer, hooks, tools | [project-setup.md](.claude/rules/project-setup.md) |
+| DI, server/client, state owners, types, remotes, admin panel | [architecture.md](.claude/rules/architecture.md) |
+| Saves, ProfileStore, sections, purchases, currency | [saves-and-monetization.md](.claude/rules/saves-and-monetization.md) |
+| Tools, input, keys, camera | [input-and-ui.md](.claude/rules/input-and-ui.md) |
+| Interface: layout, buttons, lists, fonts, purchase buttons, UI motion | [ui.md](.claude/rules/ui.md) |
+| Ragdoll, collisions, raycasts, debris, models, animations | [character-physics.md](.claude/rules/character-physics.md) |
+| Documentation, indexes, hooks | [documentation.md](.claude/rules/documentation.md) |
 
-Игровые правила заводятся по мере вех и добавляются сюда.
+Game rules are added with milestones and listed here.
 
-Перед первой правкой в сессии прочитай целиком [project-setup](.claude/rules/project-setup.md), [MCP](.claude/pitfalls/roblox-studio.md), [проверки](.claude/pitfalls/validation.md) и [перенос Source](.claude/pitfalls/source-transfer.md). Для затронутой системы прочитай её справку, грабли и решения.
+Before the first edit in a session, read [project-setup](.claude/rules/project-setup.md), [MCP](.claude/pitfalls/roblox-studio.md), [validation](.claude/pitfalls/validation.md) and [Source transfer](.claude/pitfalls/source-transfer.md) in full. For the affected system, read its reference, pitfalls and decisions. Every animation edit is checked against the [animation principles](.claude/docs/animation-principles.md); every interface edit against the [UI principles](.claude/docs/ui-principles.md).
 
-## Рабочий процесс
+## Workflow
 
-- **Перед любой задачей обязательно пройти планирование с пользователем. Агенту запрещено принимать решения за пользователя:** выбирать несогласованный вариант, подменять ответ предположением или считать молчание согласием. До согласования допустимо читать проект и Studio и собирать факты для обсуждения; к реализации не приступать.
-- При постановке задачи последовательно закрой все нужные ветки: цель и границы, ожидаемое поведение и игровые сценарии, ограничения, зависимости от существующих систем, способ реализации, пограничные случаи и критерии приёмки. Для фичи обсуди применимые вопросы сервера/клиента, сейва, баланса, отображения, мобильных и монетизации; неприменимые темы не раздувай.
-- Каждый новый вопрос объясняй кратко и простыми словами: что нужно решить, пример ситуации в игре, с какими механиками и системами это связано и на что повлияет выбор. Дай несколько разумных вариантов, плюсы и минусы, свою рекомендацию и её причину; затем дождись выбора. Связанные вопросы обсуждай вместе, зависимые — после выбора, который их определяет.
-- Если для выбора нужен игровой референс, уточни, на какую игру и механику ориентироваться. Поиск референсов в интернете — только с разрешения пользователя, если он его ещё не давал; не приписывай игре поведение без проверки.
-- Перед реализацией кратко сведи согласованный результат и план проверки. Начинай, только когда полностью понятно, как пользователь хочет видеть фичу, все нужные ветки закрыты и реализация согласована. Явные ответы и принятые решения используй без повторных вопросов; обычные детали согласованного подхода выполняй сам, не добавляя новых решений за пользователя.
-- Не соглашайся автоматически с предложенной реализацией: оцени влияние на сервер/клиент, мобильную производительность, расширяемость конфигами и сопровождение. При недостатках возрази с аргументами и альтернативой, факты отделяй от предположений. Не спорь ради спора.
-- Если по ходу работы возник новый вопрос, неоднозначность, существенный риск или нужно изменить согласованный подход — останови зависимую реализацию и вернись к тому же порядку обсуждения; не выбирай ответ сам. Принятое решение — в decisions, согласованные границы, порядок и критерии проверки — в план.
-- Подробности — [workflow.md](.claude/rules/workflow.md).
+- **Every task starts with planning together with the user. The agent must not decide for the user:** choose an unapproved option, replace an answer with an assumption or treat silence as consent. Before agreement, reading the project and Studio and gathering facts for the discussion are allowed; implementation is not.
+- When defining a task, close every needed branch in order: goal and scope, expected behavior and game scenarios, constraints, dependencies on existing systems, implementation, edge cases and acceptance criteria. For a feature, discuss the relevant questions of server/client, saves, balance, presentation, phones and monetization; do not inflate irrelevant topics.
+- Explain each new question briefly in plain words: what needs a decision, an example situation in the game, which mechanics and systems it touches and what the choice affects. Give several reasonable options with pros and cons, your recommendation and its reason; then wait for the choice. Discuss related questions together and dependent ones after the choice that defines them.
+- If a choice needs a game reference, ask which game and mechanic to follow. Search the internet for references only with the user's permission, if not given yet; never attribute behavior to a game without checking.
+- Before implementation, briefly summarize the agreed result and the verification plan. Start only when it is fully clear how the user wants the feature, every needed branch is closed and the implementation is approved. Reuse explicit answers and accepted decisions without asking again; do the ordinary details of the agreed approach yourself without adding new decisions for the user.
+- Do not accept a proposed implementation automatically: assess the effect on server/client, phone performance, config extensibility and maintenance. If it has drawbacks, object with arguments and an alternative, separating facts from assumptions. Do not argue for its own sake.
+- If a new question, ambiguity, material risk or a change of the agreed approach appears, stop the dependent work and return to the same discussion order; do not pick the answer yourself. An accepted decision goes to decisions; agreed scope, order and checks go to the plan.
+- Details — [workflow.md](.claude/rules/workflow.md).
 
-## Приёмка и текст
+## Acceptance and writing
 
-Пиши по-русски, коротко и конкретно. Плохие новости первыми; числа, имена и пути — точно. Английский — в коде и именах, термины Roblox не переводятся.
+Chat replies use the user's language. All project text is English: documentation, code, comments, UI text, diagnostics. Simple common words and standard technical terms; Roblox terms are not translated. Short and concrete, bad news first; numbers, names and paths exactly.
 
-- `[авто]` — наблюдаемый результат: компиляция плейса, свежий Source, состояние мира, консоль. «edits applied» и `loadstring` без ошибок доказывают лишь вызов.
-- `[глазами] — требует твоей проверки`: физика, анимации, тайминги, читаемость VFX и UI, ощущение управления. Выполненными сам не отмечай.
-- Для ручного теста ускоряй числа в файле конфига до Play, в выдаче пиши «обычно → для теста». После приёмки верни обычные значения и сверь `.Source`.
-- Непроверенное называй «сделано, не проверено» и указывай способ проверки.
+- `[auto]` — an observed result: place compilation, fresh Source, world state, console. "edits applied" and `loadstring` without errors prove only that a call happened.
+- `[visual] — needs your check`: physics, animations, timings, readability of VFX and UI, control feel. Never mark these done yourself.
+- For a manual test, speed up numbers in the config file before Play and report "normal → test". After acceptance restore the normal values and verify `.Source`.
+- Unverified work is called "done, not verified" with a way to check it.
 
-## Поддержка документации
+## Documentation maintenance
 
-- Перед задачей читай [debts](.claude/docs/debts.md) и [план](.claude/docs/roadmap-to-prototype.md); перед геймплеем — [замысел](.claude/docs/concept.md); до альтернативного решения — [decisions](.claude/decisions.md).
-- Корень — ограничения и маршрут; rules — требования областей; systems — фактическое устройство; decisions — выбор и причины; pitfalls — симптом/причина/исправление; debts — открытый остаток; план — порядок и критерии. Один факт подробно в одном месте.
-- Добавил или переименовал правило — обнови таблицу выше. Новая дорогая грабля MCP — ещё и строкой в [памятку хука](.claude/hooks/roblox-mcp-reminders.json).
-- После правки документации запусти проверку и сверься с [documentation.md](.claude/rules/documentation.md):
+- Before a task read [debts](.claude/docs/debts.md) and the [plan](.claude/docs/roadmap-to-prototype.md); before gameplay — the [concept](.claude/docs/concept.md); before an alternative solution — [decisions](.claude/decisions.md).
+- The root holds constraints and routes; rules — area requirements; systems — the actual structure; decisions — choices and reasons; pitfalls — symptom/cause/fix; debts — open work; plan — order and criteria. One fact in detail in one place.
+- Documentation is impersonal: no dates, no names of other projects, no history of who decided what.
+- Added or renamed a rule — update the table above. A new expensive MCP pitfall — also a line in the [hook reminders](.claude/hooks/roblox-mcp-reminders.json).
+- After editing documentation, run the check and follow [documentation.md](.claude/rules/documentation.md):
 
       powershell -NoProfile -ExecutionPolicy Bypass -File tools/documentation/check-agent-docs.ps1

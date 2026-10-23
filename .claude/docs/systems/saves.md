@@ -1,49 +1,51 @@
-# Сейв
+# Saves
 
-Причины устройства — [решения](../../decisions/saves.md), грабли — [saves-and-purchases](../../pitfalls/saves-and-purchases.md).
+Reasons — [decisions](../../decisions/saves.md), pitfalls — [saves-and-purchases](../../pitfalls/saves-and-purchases.md).
 
-## Разделы
+## Sections
 
-Каждое сохраняемое поле принадлежит сервису-владельцу раздела; папок `PlayerData` нет. `SavesLoader` держит сессию и раздаёт разделы по соглашению: поле `SaveSection` плюс `LoadSave` и `GetSave`, `UnloadSave` необязателен. Правки `SavesLoader` новый раздел не требует, шаблона профиля нет — значения по умолчанию задаёт владелец в `LoadSave`.
+Every saved field belongs to the owning service section; there are no `PlayerData` folders. `SavesLoader` holds the session and hands out sections by convention: a `SaveSection` field plus `LoadSave` and `GetSave`, `UnloadSave` is optional. A new section needs no `SavesLoader` edit and there is no profile template — the owner sets defaults in `LoadSave`.
 
 ```lua
 local MyService = {}
 MyService.SaveSection = "Index"
 
--- data = nil у нового игрока; мусор в сейве — валидировать и заменить значением по умолчанию
+-- data = nil for a new player; garbage in the save is validated and replaced by the default
 function MyService:LoadSave(player: Player, data: any) end
 
--- зовётся перед КАЖДОЙ записью, обязан быть неразрушающим; nil = «сейв не читался», раздел не трогают
+-- runs before EVERY write, must be non-destructive; nil = "save not read", the section is left untouched
 function MyService:GetSave(player: Player): any end
 
--- необязателен: только отпускает кэш на выходе, возврат не читается
+-- optional: only releases the cache on leave, the return value is not read
 function MyService:UnloadSave(player: Player) end
 ```
 
-Нужное клиенту владелец публикует **атрибутом игрока**: источник правды — кэш сервиса, атрибут — зеркало, которое сервис обновляет при каждом изменении. Клиент подписывается на `GetAttributeChangedSignal`; атрибута нет — сейв не загружен, на счётчике `...` (так сделан `MainGui.CashLabel`).
+What the client needs, the owner publishes as a **player attribute**: the source of truth is the service cache, the attribute is a mirror updated on every change. The client subscribes to `GetAttributeChangedSignal`; no attribute means the save is not loaded, and the counter shows `...` (as `MainGui.CashLabel` does).
 
-| Раздел | Владелец | Данные | Атрибут игрока |
+| Section | Owner | Data | Player attribute |
 |---|---|---|---|
 | `Stats` | `SavesLoader` | `FirstJoin`, `LastExit`, `TotalPlaytime` | — |
-| `Currencies` | `SoftCurrencyService` | `Balances[валюта]`, `Earned[валюта]` — всего заработано | имя валюты: `Cash` |
+| `Currencies` | `SoftCurrencyService` | `Balances[currency]`, `Earned[currency]` — total earned | the currency name: `Cash` |
 
-Список валют — `Currencies` в самом `SoftCurrencyService`. Порядок сервисов не задан, поэтому разделы не зависят друг от друга. Раздел без `GetSave` пропускается с варнингом и уезжает таким, каким был прочитан.
+The currency list is `Currencies` in `SoftCurrencyService` itself. The service order is not defined, so sections do not depend on each other. A section without `GetSave` is skipped with a warning and leaves as it was read.
 
-## Сессия и запись
+## Session and writes
 
-- **ProfileStore держит ключ на время сессии**: пришедший сервер ждёт, пока прошлый отпустит. Знает про него ровно `SavesLoader`.
-- **Кэши владельцев — рабочая копия, `profile.Data` — то, что уедет в `DataStore`.** Связывает их `syncToProfile` на `Profile.OnSave`, который стреляет перед **каждой** записью, включая автосейв. `syncToProfile` не йилдит.
-- **Ни один вызов записи не йилдит.** `false` значит «сессии нет», а не «запись не удалась»: доставку гарантирует лок.
-- **Автосейв** — `SavesConfig.AutoSavePeriod` = 60 с (у библиотеки 300); единственная защита от падения сервера. `SaveInterval` = 6 с — дебаунс `RequestSave`.
-- **`BindToClose` не заводить**: ProfileStore ставит свой.
-- `IsLoaded` ставится и при провале загрузки; дальше решает `SavesConfig.KickOnLoadFail` (`true` для игрового плейса, `false` для лобби и меню). Сессию угнал другой сервер — игрока кикает `Profile.OnSessionEnd`.
-- `SavesConfig.UseEmptySave` — сессия в `ProfileStore.Mock`, работает только в Studio.
-- `DataStoreName` = `PlayersSavesData`, ключ — `SavesConfig.GetProfileKey` (`UserId`). Второй плейс юниверса обязан совпадать в обоих и держать одинаковый `ServerStorage.ProfileStore`.
-- **В Studio запись идёт только с включённым Studio Access to API Services** и в опубликованном плейсе; без них ProfileStore пишет `Roblox API services unavailable - data will not be saved`.
-- **`/wipe`** — команда чата для Id из `DevelopersConfig`: `SavesLoader:WipeSave` очищает `profile.Data`, закрывает сессию без синка кэшей и кикает с `SavesConfig.WipeMessage` ([решение](../../decisions/saves.md#wipe-для-разработчиков-стереть-всё-и-кикнуть)). `DevelopersConfig` в шаблоне пуст.
+- **ProfileStore locks the key for the session**: an arriving server waits until the previous one releases it. Only `SavesLoader` knows about it.
+- **Owner caches are the working copy, `profile.Data` is what goes to `DataStore`.** `syncToProfile` connects them on `Profile.OnSave`, which fires before **every** write, autosave included. `syncToProfile` never yields.
+- **No write call yields.** `false` means "no session", not "the write failed": the lock guarantees delivery.
+- **Autosave** — `SavesConfig.AutoSavePeriod`, shorter than the library default; the only protection against a server crash. `SaveInterval` is the `RequestSave` debounce.
+- **No `BindToClose`**: ProfileStore binds its own.
+- `IsLoaded` is set on a failed load too; then `SavesConfig.KickOnLoadFail` decides (`true` for a gameplay place, `false` for a lobby or menu). Another server took the session — `Profile.OnSessionEnd` kicks the player.
+- `SavesConfig.UseEmptySave` — the session runs in `ProfileStore.Mock`, Studio only.
+- `DataStoreName` = `PlayersSavesData`, the key is `SavesConfig.GetProfileKey` (`UserId`). A second place of the universe must match both and keep the same `ServerStorage.ProfileStore`.
+- **In Studio writes happen only with Studio Access to API Services enabled** and in a published place; without them ProfileStore prints `Roblox API services unavailable - data will not be saved`.
+- **Wipe** — the admin panel `Reset` button for `DevelopersConfig` Ids: `SavesLoader:WipeSave` clears `profile.Data`, ends the session without syncing caches and kicks with `SavesConfig.WipeMessage` ([decision](../../decisions/saves.md#save-wipe-from-the-admin-panel-wipe-everything-and-kick)). `DevelopersConfig` is empty in the template.
 
-**Сейв, написанный не ProfileStore, молча перезаписывается пустым профилем.** Сейвы схемы папок (`Currencies.Cash`, `TotalStats`) разделами не читаются.
+**A save written not by ProfileStore is silently overwritten with an empty profile.** Saves of the folder schema are not read by sections.
 
-## Покупки
+## Purchases
 
-`Monetization:ProcessReciept` помечает чек через `UpdateAsync`, и обработчик выдачи работает **внутри трансформ-функции**: не йилдит и не пишет в `DataStore`. Можно звать методы владельцев разделов (`AddCurrency`) и `RequestSave`/`Save`. Отказы, проверяемые без йилда (нет сессии, лимит), возвращают `false` и оставляют чек в очереди Roblox.
+`Monetization:ProcessReceipt` marks the receipt through `UpdateAsync`, and the delivery handler runs **inside the transform function**: it never yields and never writes to `DataStore`. It may call section owners (`AddCurrency`) and `RequestSave`/`Save`. Refusals checked without yielding (no session, a limit) return `false` and keep the receipt in the Roblox queue. The purchases history store is taken lazily on the first receipt, so an unpublished place still loads `Monetization`.
+
+Free developer purchases: with the `DeveloperPurchasesEnabled` attribute on the `Monetization` module (off by default, switched by the admin panel), `PromptProduct`/`PromptPass` grant directly to `DevelopersConfig` players, in Studio too ([decision](../../decisions/saves.md#free-developer-purchases-are-a-server-switch)).

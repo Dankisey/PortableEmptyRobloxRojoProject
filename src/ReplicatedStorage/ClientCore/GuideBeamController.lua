@@ -7,12 +7,7 @@ local BeamAsset = ReplicatedStorage.Assets.GuideBeam
 
 local GuideBeamController = {}
 
---[[
-	Раньше папка бралась через workspace:WaitForChild("Debris") на уровне модуля.
-	Любой бесконечный yield внутри require вешал конструктор ClientCore целиком —
-	это и есть «Unitialized controllers» и мёртвый клиент. Теперь папка ищется
-	в момент использования и при отсутствии создаётся, так что ждать нечего.
-]]
+--[[ found at use time, never waited for at module level: an endless yield inside require hangs the ClientCore constructor ]]
 local function getDebrisFolder(): Folder
 	return WorldQuery.GetWorldFolder("Debris")
 end

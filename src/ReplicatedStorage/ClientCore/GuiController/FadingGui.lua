@@ -25,12 +25,7 @@ local function startTween(self, config)
 	end)
 end
 
---[[
-	Оба метода отдают nil, если экран уже в нужном состоянии: ждать нечего.
-	Поэтому тип RBXScriptSignal?, и вызывающий обязан проверить перед :Wait().
-	Раньше аннотация обещала сигнал безусловно, а FadeIn вдобавок печатал warn
-	про nil-твин и тут же индексировал его.
-]]
+-- nil when the screen is already in that state: check before :Wait()
 function FadingGui:FadeOut() : RBXScriptSignal?
 	if self._isFadingOn == false then return nil end
 

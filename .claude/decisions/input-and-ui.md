@@ -1,47 +1,57 @@
-# Тулы, ввод, интерфейс
+# Tools, input, interface
 
-## `Tool.Activated` не слушает никто
+## Nobody listens to `Tool.Activated`
 
-Штатная активация приходит по тапу в любую точку экрана и не различает, что в руках: тап по интерфейсу активирует тул, второй тул требует второго обработчика, удержание не выражается вовсе. Поэтому `ManualActivationOnly = true`, а единственная точка входа — `ToolsController:UseEquippedTool()`.
+The default activation fires on a tap anywhere on screen and does not know what is in hand: a tap on the interface activates the tool, a second tool needs a second handler, a hold cannot be expressed. So `ManualActivationOnly = true`, and the only entry point is `ToolsController:UseEquippedTool()`.
 
-**Что делает тип тула, каркас не знает:** владелец регистрирует `RegisterAction(toolType, onUse, onRelease)`. Таблица действий в `ToolsController` привязала бы каркас к именам игровых механик.
+**The framework does not know what a tool type does:** the owner registers `RegisterAction(toolType, onUse, onRelease)`. An action table in `ToolsController` would tie the framework to game mechanic names.
 
-**Экранной кнопки в каркасе нет намеренно:** её вид и место — вопрос игры. Заготовки — `ToolsConfig.Actions`, `Modules.UI.KeyBadge` и `ButtonsInteractionsConnector:ConnectHoldButton`; вызовов у них ноль, это задел.
+**There is no on-screen use button in the framework on purpose:** its look and place belong to the game. The ready parts are `ToolsConfig.Actions`, `Modules.UI.KeyBadge` and `ButtonsInteractionsConnector:ConnectHoldButton`.
 
-## Тап в любую точку экрана — под флагом, выключен
+## Tap anywhere on screen — behind a flag, off
 
-`ControlsConfig.Use.TapAnywhere = true`: на тач-устройствах короткий тап вне GUI и стика зовёт `UseEquippedTool` **на отпускании** — палец сдвинулся меньше `TapMaxMove` и пробыл на экране меньше `TapMaxDuration`. На отпускании — чтобы поворот камеры свайпом не начинался с лишнего использования. Распознавание — в `ToolsController`: один вход для всех тулов и устройств. ПК и геймпад используют на нажатии.
+`ControlsConfig.Use.TapAnywhere = true`: on touch devices a short tap outside GUI and the stick calls `UseEquippedTool` **on release** — the finger moved less than `TapMaxMove` and stayed less than `TapMaxDuration`. On release, so a camera swipe does not start with an extra use. Recognition lives in `ToolsController`: one entry for all tools and devices. PC and gamepad use on press.
 
-Цена: использование запаздывает на длину тапа (~50–100 мс). Что касание стика приходит с `gameProcessed = true` — предположение, проверять в Play на эмуляторе телефона.
+Cost: use is delayed by the tap length. That a stick touch arrives with `gameProcessed = true` is an assumption, to be checked in Play on a phone emulator.
 
-В шаблоне флаг выключен: кликерам он нужен, играм с кнопкой удержания мешает.
+The flag is off in the template: clickers need it, games with a hold button are hurt by it.
 
-## У отпускания нет гварда по `gameProcessed`; касание тул не отпускает
+## Release has no `gameProcessed` guard; a touch never releases the tool
 
-Начатое удержание обязано закончиться, где бы ни оказался курсор: съеденное отпускание оставляет игрока в замахе навсегда. У нажатия гвард уместен — клик по интерфейсу не должен использовать тул.
+A started hold must end wherever the cursor is: an eaten release leaves the player in the windup forever. On press the guard is right — a click on the interface must not use the tool.
 
-Касание в `ToolsController` тул **не отпускает**: палец, ушедший со стика движения, тоже касание и обрывал бы удержание экранной кнопки. Конец своего касания ловит сама кнопка — `ConnectHoldButton` слушает `UserInputService.InputEnded` и сверяет `InputObject` нажатия: палец уезжает с кнопки, и её собственного `InputEnded` может не прийти.
+A touch in `ToolsController` **does not release** the tool: a finger leaving the movement stick is also a touch and would cut the hold of the on-screen button. The button catches the end of its own touch — `ConnectHoldButton` listens to `UserInputService.InputEnded` and compares the press `InputObject`: the finger slides off the button, and its own `InputEnded` may never come.
 
-## Кнопки слушают `InputBegan`, а не `Activated`
+## Buttons listen to `InputBegan`, not `Activated`
 
-`GuiButton.Activated` приходит по **отпусканию** — для тайминговой механики это баг по существу. Правка сделана в общей машине кнопок (`ButtonsInteractionsConnector`), а не точечно: две схемы нажатия в одном проекте гарантируют расхождение между экранами. Там же: колбэк **на каждое** нажатие (анимация не съедает нажатия быстрее `.24` с) и окно `DuplicateInputWindow` против дублей одного тапа.
+`GuiButton.Activated` fires on **release** — for a timing mechanic that is a real bug. The fix is in the shared button machine (`ButtonsInteractionsConnector`), not local: two press schemes in one project guarantee screens that disagree. There also: the callback runs on **every** press (the animation never eats fast presses) and `DuplicateInputWindow` against duplicates of one tap.
 
-Нажатие — сжатие до `.9`, отскок с перелётом до `1.06` и возврат к `.97`; штатное затемнение `AutoButtonColor` выключается при подключении. Твин наведения — только на смене цели: твин каждый кадр на каждую кнопку просаживал телефоны.
+Press — squeeze, bounce with overshoot, return to rest; the default `AutoButtonColor` darkening is turned off on connect. The hover tween runs only when the target changes: a tween per frame per button dropped phone frame rates.
 
-Кнопка удержания (`ConnectHoldButton`): сжатие на нажатии держится, пока кнопка зажата, отскок и возврат — только на отпускании.
+The hold button (`ConnectHoldButton`): the press squeeze holds while pressed, bounce and return happen only on release.
 
-## Подпись клавиши — по `PreferredInput`, а не по устройству
+## The key label follows `PreferredInput`, not the device
 
-`KeyBadge.Apply(badge, hint)` выбирает подпись по `UserInputService.PreferredInput` (`Touch` → `Mobile`, `Gamepad`/`MicroGamepad` → `Console`, иначе `Desktop`), `KeyBadge.Bind` пересобирает бейдж на его смене. Тип устройства от вызывающего врёт на ПК с воткнутым геймпадом. Тип управления для курсора и тач-областей (`InputController:GetControllType`) не тронут: это другой вопрос.
+`KeyBadge.Apply(badge, hint)` picks the label by `UserInputService.PreferredInput` (`Touch` → `Mobile`, `Gamepad`/`MicroGamepad` → `Console`, otherwise `Desktop`), `KeyBadge.Bind` rebuilds the badge when it changes. A device type passed by the caller lies on a PC with a plugged in gamepad. The control type for the cursor and touch areas (`InputController:GetControlType`) is a different question and stays as is.
 
-## Курсор прячется только в первом лице
+## The cursor hides only in first person
 
-Шаблон прятал курсор безусловно — наследство игры от первого лица. `InputController` теперь следит за `Player.CameraMode`: курсор скрыт только при `LockFirstPerson`.
+`InputController` follows `Player.CameraMode`: the cursor is hidden only with `LockFirstPerson`.
 
-## Прозрачность персонажа в первом лице считается сама
+## First person character transparency is computed by the framework
 
-Штатный `TransparencyController` в первом лице гасит персонаж вместе с тулом в руках и **выключается совсем**, когда `CameraSubject` перестаёт быть `Humanoid` — а это делает `RagdollCamera`. Свой бинд идёт на `Camera.Value + 1`: на равном приоритете штатный перетрёт результат в том же кадре. Под флагом `CameraConfig.FirstPersonVisibility`, выключенным: плейс играется от третьего лица, и флаг спрятал бы персонаж.
+The default `TransparencyController` in first person hides the character together with the held tool and **turns off completely** when `CameraSubject` stops being a `Humanoid` — which `RagdollCamera` does. The own bind runs on `Camera.Value + 1`: at equal priority the default one overwrites the result in the same frame. It is behind `CameraConfig.FirstPersonVisibility`, off: the template plays in third person, and the flag would hide the character.
 
-## Интерфейс не топит ввод мыши
+## The interface never sinks mouse input
 
-В первом лице курсор залочен по центру, и всё, что накрывает центр и принимает ввод, отбирает у камеры вращение, а у ЛКМ — использование тула. Поэтому `BillboardGui.Active` включается только на тач-устройствах (`adaptInputToDevice` в `CustomPromptTemplate`), а экранная кнопка во весь экран гасится `Visible = false`, а не `Active`.
+In first person the cursor is locked in the center, and anything covering the center that takes input steals camera rotation and tool use. So `BillboardGui.Active` is on only on touch devices (`adaptInputToDevice` in `CustomPromptTemplate`), and a full screen element is hidden with `Visible = false`, not `Active`.
+
+## Landscape only
+
+`StarterGui.ScreenOrientation = LandscapeSensor`: there is no portrait on any screen. Games with a stick and action buttons read better in landscape, and the layout keeps one format. Cost: a player holding the phone upright has to rotate it. Mobile layout is checked in landscape only. Revision — a game that needs portrait.
+
+## Layout comes from prepared templates
+
+The Studio layout is the source of truth: code clones prepared templates and changes only content and state, never building GUI with `Instance.new` (except `UIScale` for animations). A button is an empty transparent `GuiButton` for input, all visuals are children over it. Lists use a wrapped `UIListLayout` with spacing built into a transparent template cell instead of `Padding`, which keeps `AutomaticCanvasSize` correct. Proportions use `SizeConstraint` instead of `UIAspectRatioConstraint`. Interactive elements are anchored in the center so the press `UIScale` scales from the middle. Requirements — [ui](../rules/ui.md).
+
+Why: a layout built by code cannot be checked by eye in Studio and drifts from the design; one template per element keeps fonts, colors and sizes consistent. Cost: every new element starts in Studio, not in code.

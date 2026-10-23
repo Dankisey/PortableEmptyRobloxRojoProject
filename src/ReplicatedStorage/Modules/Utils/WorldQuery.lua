@@ -1,35 +1,16 @@
---[[
-	WorldQuery — рейкасты и сбор объектов мира.
-
-	Главное здесь — вода. Обычно её два разных объекта: видимый Terrain
-	и невидимый коллайдер с тегом Water (CanCollide = false, но CanQuery = true).
-	Из-за этого любой рейкаст «где земля» ОБЯЗАН исключать тег Water,
-	иначе он считает воду твёрдой опорой, а рейкаст «где вода» — наоборот,
-	только его и включать.
-
-	Это выбор функции, а не внимательности: RaycastWater против RaycastGround.
-	Собирать RaycastParams руками не надо нигде.
-
-	Воды в проекте может не быть вовсе — тогда тегом WorldConfig.WaterTag
-	ничего не помечено, RaycastWater честно вернёт nil, а RaycastGround
-	просто ничего не исключит.
-]]
-
 local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local WorldConfig = require(ReplicatedStorage.Configs.WorldConfig)
 
+--[[ water is usually an invisible collider tagged WorldConfig.WaterTag with CanQuery: ground casts must exclude it, water casts must include only it ]]
 local WorldQuery = {}
 
 local function getWaterParts(): {BasePart}
 	return CollectionService:GetTagged(WorldConfig.WaterTag)
 end
 
---[[
-	Рейкаст только по воде. nil означает и «не попал», и «воды в мире нет»:
-	для вызывающих это один и тот же ответ — забрасывать некуда.
-]]
+-- nil means both "missed" and "no water in the world"
 function WorldQuery.RaycastWater(origin: Vector3, direction: Vector3): RaycastResult?
 	local waterParts = getWaterParts()
 
@@ -43,17 +24,13 @@ function WorldQuery.RaycastWater(origin: Vector3, direction: Vector3): RaycastRe
 	return workspace:Raycast(origin, direction, params)
 end
 
---[[ Есть ли вода под точкой: бьём сверху вниз с запасом по высоте. ]]
 function WorldQuery.IsOverWater(position: Vector3, height: number?): boolean
 	local reach = height or 8
 
 	return WorldQuery.RaycastWater(position + Vector3.yAxis * (reach * .5), -Vector3.yAxis * reach) ~= nil
 end
 
---[[
-	Рейкаст «где твёрдая земля». Коллайдеры воды исключаются всегда,
-	ignore — дополнительные объекты вызывающего (свой персонаж, папка рыбы и т. п.).
-]]
+-- water colliders are always excluded; ignore adds the caller's own instances
 function WorldQuery.RaycastGround(origin: Vector3, direction: Vector3, ignore: {Instance}?): RaycastResult?
 	local filter = {}
 
@@ -75,7 +52,6 @@ function WorldQuery.RaycastGround(origin: Vector3, direction: Vector3, ignore: {
 	return workspace:Raycast(origin, direction, params)
 end
 
---[[ Папка в Workspace по имени; если её нет — создаём. ]]
 function WorldQuery.GetWorldFolder(name: string): Folder
 	local folder = workspace:FindFirstChild(name)
 
@@ -88,16 +64,14 @@ function WorldQuery.GetWorldFolder(name: string): Folder
 	return folder
 end
 
---[[
-	Парты берём и из тега, и из папки; парт, помеченный дважды, не дублируется.
-	Так удобно размечать зоны и точки спавна: часть тегом, часть папкой.
-]]
+-- parts from both the tag and the folder, without duplicates
 function WorldQuery.CollectTaggedAndFoldered(tag: string, folderName: string): {BasePart}
 	local parts = {}
 	local seen = {}
 
 	local function tryAdd(instance: Instance)
 		if not instance:IsA("BasePart") then return end
+
 		if seen[instance] then return end
 
 		seen[instance] = true

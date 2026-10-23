@@ -1,74 +1,26 @@
---[[
-	Всё про сейв игрока в одном месте.
-
-	Каждый раздел сейва принадлежит сервису (SaveSection + LoadSave/GetSave),
-	нужное клиенту сервис публикует атрибутом игрока; см. SavesLoader.
-
-	Сессию и запись держит ProfileStore (ServerStorage.ProfileStore): ключ занят
-	на время сессии, поэтому два сервера не могут писать один сейв наперегонки,
-	а автосейв не даёт падению сервера унести всю сессию.
-]]
-
 local SavesConfig = {}
 
 SavesConfig.DataStoreName = "PlayersSavesData"
 
---[[
-	Ключ профиля. Вынесен функцией, потому что он обязан совпадать во ВСЕХ
-	плейсах юниверса: сейв у них общий, а разъехавшийся ключ даёт игроку
-	два независимых прогресса вместо одного.
-]]
+--[[ must match in every place of the universe: a different key gives the player two separate progressions ]]
 function SavesConfig.GetProfileKey(player: Player): string
 	return tostring(player.UserId)
 end
 
---[[
-	Секунд между автосейвами. Дефолт самого ProfileStore — 300; здесь он
-	опущен, потому что это ЕДИНСТВЕННАЯ защита от падения сервера для всего,
-	что меняет прогресс молча (награда, начисление, прогресс раздела).
+--[[ autosave is the only protection against a server crash for progress that changes silently ]]
+SavesConfig.AutoSavePeriod = 60 -- seconds between autosaves, shorter than the ProfileStore default
 
-	Число размазывает записи по времени: ProfileStore крутит профили по кругу,
-	а не пишет всех разом. Бюджет DataStore — 60 + 10 x игроков записей
-	в минуту, так что запас большой.
-]]
-SavesConfig.AutoSavePeriod = 60
+SavesConfig.SaveInterval = 6 -- seconds of RequestSave debounce: a burst of purchases becomes one write
 
---[[
-	Дебаунс форсированной записи (RequestSave) — мягкий предел DataStore
-	на один ключ. Пачка покупок подряд уедет одной записью, а не пятью.
-]]
-SavesConfig.SaveInterval = 6
-
---[[
-	Что делать, если сессию так и не удалось начать.
-
-	true  — кикнуть. Так надо в игровом плейсе: играть с дефолтами и затереть
-	        ими настоящий прогресс на выходе хуже, чем не пустить вовсе.
-	false — пустить без сейва. Так надо в лобби и меню: счётчики
-	        останутся в состоянии "загружаю", а запись такому игроку
-	        невозможна — профиля у него нет.
-
-	IsLoaded ставится в ЛЮБОМ случае: атрибут значит "загрузка закончилась",
-	а не "закончилась удачно". Без него клиент повиснет на старте навсегда.
-]]
+--[[ true for a gameplay place: playing on defaults and overwriting real progress on leave is worse than not letting in; false for a lobby or menu ]]
 SavesConfig.KickOnLoadFail = true
-SavesConfig.KickMessage = "Не удалось загрузить сохранение, зайдите заново"
+SavesConfig.KickMessage = "Could not load your save, please rejoin"
 
---[[
-	Сессию угнал другой сервер — значит этот больше не имеет права писать,
-	и играть дальше игроку нельзя: его прогресс уже никуда не уедет.
-]]
-SavesConfig.SessionEndedMessage = "Сохранение открыто в другой игре, зайдите заново"
+SavesConfig.SessionEndedMessage = "Your save is open in another server, please rejoin"
 
---[[ команда чата для DevelopersConfig: стирает свой сейв целиком и кикает, на заходе всё как у нового игрока ]]
-SavesConfig.WipeCommandAlias = "/wipe"
-SavesConfig.WipeMessage = "Сохранение сброшено, зайдите заново"
+SavesConfig.WipeMessage = "Your save was wiped, please rejoin"
 
---[[
-	Тестовый режим: сессия идёт в отдельном фальшивом сторе (ProfileStore.Mock),
-	из него в DataStore не уезжает ничего. Работает только в Studio, чтобы флаг,
-	забытый включённым, не уехал на прод.
-]]
+--[[ Studio only: the session runs in ProfileStore.Mock and nothing reaches the DataStore ]]
 SavesConfig.UseEmptySave = false
 
 return SavesConfig

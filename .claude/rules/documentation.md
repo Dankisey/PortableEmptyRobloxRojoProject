@@ -2,22 +2,24 @@
 paths: ["CLAUDE.md", ".claude/**/*.md", ".claude/hooks/**", "tools/documentation/**"]
 ---
 
-# Документация
+# Documentation
 
-- Корень хранит ограничения и маршрут; [rules](./) — требования областей; [docs/systems](../docs/systems/README.md) — фактическое устройство; [решения](../decisions.md) — выбор, причина, цена, пересмотр; [pitfalls](../pitfalls/README.md) — симптом → причина → исправление → проверка; [debts](../docs/debts.md) — открытый остаток; [план](../docs/roadmap-to-prototype.md) — порядок и критерии; [milestones-done](../docs/milestones-done.md) — принятые результаты.
-- **Один факт подробно — в одном месте**, в остальных граница и ссылка. При переносе удаляй старое описание, а не дописывай рядом.
-- Пиши лаконично: требование, число и причина в одной-двух фразах, без пересказа истории. Разросшийся пункт сжимай при правке.
-- Действующую реализацию сверяй с Source в Studio. Замысел, решения и планы не доказывают сделанную механику. ТЗ заказчика, если есть, кладётся в `.claude/docs/` как есть и не правится (исключение — `$ExcludedDocs` в скрипте проверки); действующий замысел — [concept](../docs/concept.md).
-- Закрытый долг удаляй из debts; принятую веху — выжимкой в milestones-done, план вехи — копией в `backup/` и из действующих документов. Неподтверждённую ручную приёмку сохраняй явно. Правка текста не новый прогон: даты результатов не освежай.
-- Новое/переименованное правило — в таблицу [CLAUDE.md](../../CLAUDE.md) с `paths` на реальные локальные документы своей области (DataModel Studio путей не имеет). Без `paths` — только `workflow` и `code-style`: они грузятся всегда, и третье такое правило требует решения.
-- Новый файл decisions/pitfalls/systems — в индекс своего раздела. Новая дорогая грабля MCP — ещё и строкой в [памятку хука](../hooks/roblox-mcp-reminders.json).
-- Тема не ложится в разделы или раздел раздувается — предложи пользователю новый файл: назначение, место, paths. Молча не создавай.
-- Документация живёт только локально; в Studio её не дублируй.
+- All documentation is English: simple common words and standard technical terms, concise, facts preserved, filler removed. Chat replies use the user's language.
+- **Documentation is impersonal:** no dates, no names of other projects or people, no "the user decided" or "previously". A decision states the choice, reason, cost and revision condition, not who and when.
+- The root holds constraints and routes; [rules](./) — area requirements; [docs/systems](../docs/systems/README.md) — the actual structure; [decisions](../decisions.md) — choice, reason, cost, revision; [pitfalls](../pitfalls/README.md) — symptom → cause → fix → check; [debts](../docs/debts.md) — open work; [plan](../docs/roadmap-to-prototype.md) — order and criteria; [milestones-done](../docs/milestones-done.md) — accepted results.
+- **One fact in detail in one place**, elsewhere a scope line and a link. When moving a fact, delete the old text instead of adding next to it.
+- Write concisely: a requirement, a number and a reason in one or two sentences, without history. Shrink a grown item when editing it.
+- Verify the actual implementation against Source in Studio. Concept, decisions and plans do not prove a built mechanic. A client brief, if any, goes into `.claude/docs/` as is and is not edited (exception — `$ExcludedDocs` in the check script); the current concept is [concept](../docs/concept.md).
+- A closed debt is removed from debts; an accepted milestone goes as a summary into milestones-done, its plan as a copy into `backup/` and out of the active documents. An unconfirmed manual acceptance stays explicit.
+- A new or renamed rule goes into the [CLAUDE.md](../../CLAUDE.md) table with `paths` to real local documents of its area (the Studio DataModel has no paths). Only `workflow` and `code-style` have no `paths`: they always load, and a third such rule needs a decision.
+- A new decisions/pitfalls/systems file goes into its section index. A new expensive MCP pitfall is also a line in the [hook reminders](../hooks/roblox-mcp-reminders.json).
+- If a topic does not fit the sections or a section grows too large, propose a new file to the user: purpose, location, paths. Do not create it silently.
+- Documentation lives only locally; it is not duplicated in Studio.
 
-После правки из корня:
+After an edit, from the root:
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File tools/documentation/check-agent-docs.ps1
 ```
 
-Проверка подтверждает индексы, `paths`, ссылки, anchors и JSON памяток. Смысл и соответствие Source проверяются отдельно.
+The check confirms indexes, `paths`, links, anchors, hook JSON and the absence of Cyrillic. Meaning and agreement with Source are checked separately.

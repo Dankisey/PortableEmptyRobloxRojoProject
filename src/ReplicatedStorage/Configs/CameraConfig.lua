@@ -1,18 +1,9 @@
 local CameraConfig = {}
 
---[[
-	Первое лицо: считать ли прозрачность персонажа самим.
-
-	Включать надо ВМЕСТЕ с StarterPlayer.CameraMode = LockFirstPerson. Штатный
-	TransparencyController в первом лице гасит персонаж целиком, вместе с тулом
-	в руках, и отключается совсем, как только CameraSubject перестаёт быть
-	Humanoid — а именно это делает RagdollCamera. Подробности в CameraController.
-
-	В третьем лице флаг ОБЯЗАН быть выключен: иначе персонаж скрыт безусловно.
-]]
+--[[ turn on together with StarterPlayer.CameraMode = LockFirstPerson; in third person it must stay off, or the character is always hidden ]]
 CameraConfig.FirstPersonVisibility = false
 
---[[ Части, которые видно от первого лица. Плечи не входят: лезут в кадр. ]]
+--[[ visible in first person; upper arms are left out because they enter the frame ]]
 CameraConfig.VisibleCharacterParts = {
 	LeftHand = true;
 	RightHand = true;
@@ -23,8 +14,8 @@ CameraConfig.VisibleCharacterParts = {
 CameraConfig.ThirdPersonOffset = CFrame.new(3, 3, 4) * CFrame.fromOrientation(math.rad(-15), math.rad(15), math.rad(0))
 
 CameraConfig.ShakingCircle = {
-	Duration = 1.2;
-	Intencity = {
+	Duration = 1.2; -- seconds
+	Intensity = {
 		Min = 2;
 		Max = 5;
 	}

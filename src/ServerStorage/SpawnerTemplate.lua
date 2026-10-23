@@ -1,29 +1,7 @@
---[[
-	SpawnerTemplate — общая машина популяции для сервисов, которые держат
-	на карте ограниченный набор однотипных объектов: врагов, точек интереса,
-	собираемых предметов.
-
-	Общего у всех таких сервисов ровно это:
-		• реестр по возрастающему id и подсчёт населения
-		• лимит из конфига, при котором таймер спавна НЕ идёт вовсе
-		• пауза RespawnInterval после того, как место освободилось
-		• SpawnRetryInterval, если попытка спавна не удалась
-		• цикл обновления с шагом UpdateInterval под pcall
-
-	Различия (где спавнить, чем убирать, какие гейты) остаются у сервиса и приходят
-	коллбэками в InitSpawner.
-
-	Лежит рядом с ServiceTemplate, а НЕ в ServerCore: всё, что лежит в ServerCore,
-	фреймворк превращает в сервис.
-
-	Сервисы — синглтоны на самой таблице модуля и уже заняли свой __index под
-	ServiceTemplate, поэтому методы копируются на сервис напрямую, а не через
-	вторую метатаблицу.
-]]
-
+--[[ lives next to ServiceTemplate, not in ServerCore: the framework turns every ServerCore child into a service ]]
 local SpawnerTemplate = {}
 
---[[========================= методы, которые получает сервис =========================]]
+--[[========================= methods copied onto the service =========================]]
 
 local Methods = {}
 
@@ -51,7 +29,7 @@ function Methods:Count(): number
 	return count
 end
 
---[[ Плоский список — безопасно обходить, пока реестр меняется. ]]
+-- a flat list, safe to iterate while the registry changes
 function Methods:GetAll(): {any}
 	local entries = {}
 
@@ -62,13 +40,7 @@ function Methods:GetAll(): {any}
 	return entries
 end
 
---[[
-	Снять объект с учёта. Всё, что сверх учёта (убить модель, снести парт),
-	делает OnRemove сервиса — туда же уходят дополнительные аргументы.
-
-	Проверка лимита считается ДО удаления: именно тогда место считается
-	освободившимся и включается пауза респавна.
-]]
+--[[ the limit is checked before removal: that is when the slot frees up and the respawn pause starts ]]
 function Methods:Remove(id: number, ...)
 	local entry = self._entries[id]
 
@@ -96,12 +68,7 @@ function Methods:DespawnAll()
 	self._nextSpawnClock = nil
 end
 
---[[
-	Хвост тика: гейт → лимит → таймер → попытка спавна.
-
-	Нулевой _nextSpawnClock означает «таймер сейчас не идёт», а не «пора спавнить»:
-	при лимите он сбрасывается, чтобы отсчёт начался заново после освобождения места.
-]]
+--[[ nil _nextSpawnClock means the timer is not running, not "spawn now": it resets at the limit so the countdown restarts after a slot frees ]]
 local function updateSpawning(self)
 	local spawner = self._spawner
 	local config = spawner.Config
@@ -130,10 +97,10 @@ local function updateSpawning(self)
 	end
 end
 
+--[[ the service update runs first: it may remove entries and free a slot ]]
 local function tick(self)
 	local spawner = self._spawner
 
-	--[[ Своя часть тика идёт первой: она может снять объекты и освободить место. ]]
 	if spawner.OnUpdate then
 		spawner.OnUpdate(self)
 	end
@@ -141,7 +108,6 @@ local function tick(self)
 	updateSpawning(self)
 end
 
---[[ Зовётся из Initialize сервиса. ]]
 function Methods:StartSpawner()
 	local spawner = self._spawner
 
@@ -152,36 +118,30 @@ function Methods:StartSpawner()
 			local success, err = pcall(tick, self)
 
 			if not success then
-				warn(spawner.Name .. ": ошибка в цикле обновления: " .. tostring(err))
+				warn(spawner.Name .. ": update loop error: " .. tostring(err))
 			end
 		end
 	end)
 end
 
---[[========================= подключение =========================]]
+--[[========================= setup =========================]]
 
 --[[
-	params:
-		Name        : string   — имя сервиса для сообщений об ошибках
-		Config      : table    — нужны SpawnInterval, RespawnInterval,
-		                         SpawnRetryInterval, UpdateInterval и поле лимита
-		LimitKey    : string   — имя поля лимита в конфиге (например "MaxSpots")
-		TrySpawn    : (self) -> boolean        — true, если получилось
-		OnRemove    : (self, entry, ...) -> () — убрать то, что сверх учёта
-		ShouldSpawn : (self) -> boolean        — гейт перед спавном
-		OnUpdate    : (self) -> ()             — своя часть тика
+	params: Name, Config (SpawnInterval, RespawnInterval, SpawnRetryInterval, UpdateInterval and the limit field),
+	LimitKey, TrySpawn(self) -> boolean, OnRemove(self, entry, ...)?, ShouldSpawn(self) -> boolean?, OnUpdate(self)?
 ]]
 function SpawnerTemplate.InitSpawner(self, params)
-	assert(params.Config, "SpawnerTemplate: не передан Config")
-	assert(params.LimitKey, "SpawnerTemplate: не передан LimitKey")
-	assert(params.TrySpawn, "SpawnerTemplate: не передан TrySpawn")
-	assert(params.Config[params.LimitKey], "SpawnerTemplate: в конфиге нет поля " .. params.LimitKey)
+	assert(params.Config, "SpawnerTemplate: Config is missing")
+	assert(params.LimitKey, "SpawnerTemplate: LimitKey is missing")
+	assert(params.TrySpawn, "SpawnerTemplate: TrySpawn is missing")
+	assert(params.Config[params.LimitKey], "SpawnerTemplate: config has no field " .. params.LimitKey)
 
 	self._spawner = params
 	self._entries = {}
-	self._nextSpawnClock = nil -- nil означает, что таймер сейчас не идёт
+	self._nextSpawnClock = nil
 	self._nextId = 0
 
+	--[[ copied directly: the service is a singleton on the module table and its __index is already taken by ServiceTemplate ]]
 	for name, method in Methods do
 		self[name] = method
 	end

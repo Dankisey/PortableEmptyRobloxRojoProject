@@ -1,14 +1,4 @@
---[[
-	Загрузка папки модулей с одинаковым поведением на сервере и на клиенте:
-	упавший модуль не роняет весь старт, а только печатает предупреждение.
-
-	Строка "Module X was not loaded" — главный признак поломки фреймворка,
-	поэтому она должна быть объявлена ровно один раз на весь проект.
-
-	ВНИМАНИЕ: модуль лежит в Modules.Utils и потому сам попадает в таблицу utils.
-	Это безобидно, но ServerCore/ClientCore обязаны реквайрить его напрямую
-	по пути: на момент загрузки утилит инъекции ещё нет.
-]]
+--[[ the only place with "Module X was not loaded"; ServerCore and ClientCore require it by path because utils are not injected yet ]]
 local function LoadModules(folder: Instance): {[string]: any}
 	local modules = {}
 

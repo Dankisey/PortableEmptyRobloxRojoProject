@@ -5,12 +5,7 @@ local GuiService = game:GetService("GuiService")
 local ControllerTemplate = require(ReplicatedStorage.Modules.ControllerTemplate)
 local TestingConfig = require(ReplicatedStorage.Configs.TestingConfig)
 
---[[
-	Gizmos — отладочная рисовалка на 478 строк, нужная только при IsTesting.
-	Лежит вне Modules.Utils, иначе фреймворк реквайрит её на каждом старте —
-	а на сервере она падает на клиентском BindToRenderStep и даёт ложный
-	"Module Gizmos was not loaded", который маскирует настоящие поломки.
-]]
+--[[ outside Modules.Utils: the framework would require it on every start, and on the server it fails with a false "Module Gizmos was not loaded" ]]
 local Gizmos = TestingConfig.IsTesting and require(ReplicatedStorage.Modules.Gizmos) or nil
 
 local InputController = {}
@@ -30,7 +25,7 @@ end
 function InputController:GetScreenRay() : Ray
 	local rayOrigin, rayDirection
 
-	if self._controllType == "Mobile" then
+	if self._controlType == "Mobile" then
 		local camera = workspace.CurrentCamera
 		local viewportSize = camera.ViewportSize
 		local centerX = viewportSize.X / 2
@@ -55,16 +50,16 @@ function InputController:GetScreenRay() : Ray
 end
 
 function InputController:GetCursorPosition() : Vector2
-	if self._controllType == "Mobile" then
+	if self._controlType == "Mobile" then
 		return UserInputService:GetMouseLocation()
-	elseif self._controllType == "Desktop" then
+	elseif self._controlType == "Desktop" then
 		return UserInputService:GetMouseLocation()
 	else
 		return self._camera.ViewportSize / 2
 	end
 end
 
-function InputController:GetControllType()
+function InputController:GetControlType()
 	if GuiService:IsTenFootInterface() then
 		return "Console"
 	elseif UserInputService.TouchEnabled and (not UserInputService.MouseEnabled) then
@@ -74,16 +69,11 @@ function InputController:GetControllType()
 	end
 end
 
---[[ в первом лице мышь залочена по центру и кликать ей не по чему; в третьем курсор нужен для интерфейса ]]
+--[[ in first person the mouse is locked to the center; in third person the cursor is needed for the interface ]]
 local function updateMouseIcon(player: Player)
 	UserInputService.MouseIconEnabled = player.CameraMode ~= Enum.CameraMode.LockFirstPerson
 end
 
---[[
-	Активации тула по клику здесь больше нет. За использование отвечает
-	ToolsController: там же живут клавиши использования тула.
-	Тап в любую точку экрана — тоже там, под флагом ControlsConfig.Use.TapAnywhere.
-]]
 function InputController:AfterPlayerLoaded(player)
 	self._player = player
 
@@ -106,7 +96,7 @@ end
 function InputController.new()
 	local self = setmetatable(InputController, {__index = ControllerTemplate})
 	self._camera = workspace.CurrentCamera :: Camera
-	self._controllType = self:GetControllType()
+	self._controlType = self:GetControlType()
 
 	return self
 end

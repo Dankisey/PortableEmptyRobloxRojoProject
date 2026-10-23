@@ -1,7 +1,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Players = game:GetService("Players")
-local SoundService = game:GetService("SoundService")
 local ContentProvider = game:GetService("ContentProvider")
+local SoundService = game:GetService("SoundService")
+local Players = game:GetService("Players")
 local Debris = game:GetService("Debris")
 
 local SoundRequested = ReplicatedStorage.Remotes.SoundRequested
@@ -9,13 +9,11 @@ local SFX = SoundService.SFX
 
 local SoundConfig = require(ReplicatedStorage.Configs.SoundConfig)
 
---[[ Страховка от зависшего или недоступного аудио. ]]
-local MaxLifetime = 30
+local MaxLifetime = 30 -- seconds, a safety net against stuck or unavailable audio
 local LocalPlayer = Players.LocalPlayer
 
 local SoundPlayer = {}
 
---[[ Шаблоны хранятся в SoundService.SFX ещё в Edit-режиме Studio. ]]
 local function getTemplate(soundName: string): Sound?
 	local template = SFX:FindFirstChild(tostring(soundName))
 
@@ -26,16 +24,16 @@ local function getTemplate(soundName: string): Sound?
 	return nil
 end
 
-function SoundPlayer:PlaySound(soundName, onPart: (BasePart | Attachment)?) : Sound?
+function SoundPlayer:PlaySound(soundName, onPart: (BasePart | Attachment)?): Sound?
 	local template = getTemplate(soundName)
 
-	--[[ пустой SoundId штатный (звук ещё не выбран), а его клон не стреляет Ended и живёт до MaxLifetime ]]
+	--[[ an empty SoundId is valid (not chosen yet), and its clone never fires Ended and lives until MaxLifetime ]]
 	if template and template.SoundId == "" then return nil end
 
 	local sound = template and template:Clone()
 
 	if not sound then
-		warn("SoundPlayer: не найден звук " .. tostring(soundName))
+		warn("SoundPlayer: sound not found " .. tostring(soundName))
 
 		return nil
 	end
@@ -52,7 +50,7 @@ function SoundPlayer:PlaySound(soundName, onPart: (BasePart | Attachment)?) : So
 	end)
 	sound:Play()
 
-	--[[ TimeLength равен нулю до загрузки, поэтому на него время жизни не опирается. ]]
+	--[[ TimeLength is zero until loaded, so the lifetime does not rely on it ]]
 	Debris:AddItem(sound, math.min(config and config.Lifetime or MaxLifetime, MaxLifetime))
 
 	return sound
@@ -65,13 +63,13 @@ function SoundPlayer:Initialize()
 		local template = getTemplate(soundName)
 
 		if not template then
-			warn("SoundPlayer: в SoundService.SFX нет шаблона " .. tostring(soundName))
+			warn("SoundPlayer: SoundService.SFX has no template " .. tostring(soundName))
 		elseif template.SoundId ~= "" then
 			table.insert(sounds, template)
 		end
 	end
 
-	--[[ Не блокируем старт ClientCore: к первому игровому действию звуки уже в кэше. ]]
+	--[[ does not block ClientCore start: sounds are cached before the first gameplay action ]]
 	task.spawn(function()
 		pcall(ContentProvider.PreloadAsync, ContentProvider, sounds)
 	end)
@@ -81,7 +79,7 @@ function SoundPlayer.new()
 	local self = setmetatable({}, {__index = SoundPlayer})
 
 	SoundRequested.OnClientEvent:Connect(function(soundName, onPart, exceptPlayer)
-		-- Владелец заброса уже услышал локальный звук без сетевого круга.
+		--[[ the initiator already heard the local sound without a network round trip ]]
 		if exceptPlayer == LocalPlayer then return end
 
 		self:PlaySound(soundName, onPart)

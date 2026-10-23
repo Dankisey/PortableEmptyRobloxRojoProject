@@ -1,10 +1,3 @@
---[[
-	BackgroundMusicController — локальный фоновый плейлист забега.
-
-	Музыка не реплицируется и не привязана к миру: каждому игроку нужна своя
-	громкость, а следующая композиция выбирается после окончания предыдущей.
-]]
-
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local SoundService = game:GetService("SoundService")
 local TweenService = game:GetService("TweenService")
@@ -12,6 +5,7 @@ local TweenService = game:GetService("TweenService")
 local ControllerTemplate = require(ReplicatedStorage.Modules.ControllerTemplate)
 local SoundConfig = require(ReplicatedStorage.Configs.SoundConfig)
 
+--[[ local to each player: music is not replicated and each player needs their own volume ]]
 local BackgroundMusicController = {}
 
 local function getNextIndex(self): number
@@ -76,7 +70,7 @@ local function playNext(self)
 		playNext(self)
 	end)
 
-	--[[ Если аудио недоступно и Ended не придёт, плейлист не должен зависнуть. ]]
+	--[[ unavailable audio never fires Ended, and the playlist must not stall ]]
 	task.delay(SoundConfig.BackgroundFallbackDuration, function()
 		if self._currentSound ~= sound or not sound.Parent then return end
 

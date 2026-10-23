@@ -1,13 +1,16 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Config = require(ReplicatedStorage.Configs.MessagesConfig)
-local MessageSent = ReplicatedStorage.Remotes.UI.ServerMessageSent
-local ControllerTemplate = require(ReplicatedStorage.Modules.ControllerTemplate)
-
 local TweenService = game:GetService("TweenService")
+
+local MessageSent = ReplicatedStorage.Remotes.UI.ServerMessageSent
+
+local ControllerTemplate = require(ReplicatedStorage.Modules.ControllerTemplate)
+local Config = require(ReplicatedStorage.Configs.MessagesConfig)
 
 local MessagesHolder = {}
 
 local function showMessage(self, message: string)
+	self._controllers.SoundPlayer:PlaySound(self._configs.SoundNames.Message)
+
 	local messageLabel: TextLabel = self._messageTemplate:Clone()
 	messageLabel.Text = message
 	messageLabel.Visible = true
@@ -28,7 +31,7 @@ local function showMessage(self, message: string)
 		tween:Play()
 		tween.Completed:Wait()
 
-		-- элемент могли убрать раньше: table.remove(t, nil) — это ошибка, а не no-op
+		--[[ the label may already be removed, and table.remove with nil throws ]]
 		local index = table.find(self._messages, messageLabel)
 
 		if index then
@@ -47,6 +50,7 @@ end
 
 function MessagesHolder.new(frame: Frame)
 	local self = setmetatable(MessagesHolder, {__index = ControllerTemplate})
+
 	self._messages = {} :: {TextLabel}
 	self._messagesHolder = frame :: Frame
 	self._messageTemplate = frame.Template :: TextLabel

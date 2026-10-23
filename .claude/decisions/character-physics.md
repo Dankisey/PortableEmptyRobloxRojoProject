@@ -1,25 +1,25 @@
-# Физика персонажа, рэгдолл, коллизии
+# Character physics, ragdoll, collisions
 
-## Физику персонажа делает клиент
+## The client does character physics
 
-Персонажем владеет его клиент. Серверный `AssemblyLinearVelocity` владелец сбрасывает, а `SetNetworkOwner(nil)` останавливает симуляцию тела вовсе. Замер: серверный толчок двигал тело на **5 студов**, тот же с клиента — на **28**.
+The client owns its character. A server `AssemblyLinearVelocity` is reset by the owner, and `SetNetworkOwner(nil)` stops the body simulation entirely. Measured: a server push moved the body several times less than the same push from the client.
 
-Разделение: **сервер держит состояние и рассылает сигнал, клиент делает позу и импульс**. `RagdollService` авторитетен в том, кто лежит и у кого иммунитет; `RagdollController` — в том, как это выглядит. Сигнал идёт `FireAllClients`: локальный рэгдолл другим не реплицируется, позу собирает каждый клиент, импульс — только владелец.
+Split: **the server holds the state and broadcasts the signal, the client builds the pose and the impulse**. `RagdollService` is authoritative on who is down and who is immune; `RagdollController` on how it looks. The signal goes through `FireAllClients`: a local ragdoll does not replicate, so every client builds the pose, and only the owner applies the impulse.
 
-## Устройство рэгдолла
+## Ragdoll structure
 
-Риг — конструктивная R15: `Motor6D` нет, вместо них 15 `AnimationConstraint` (поза) и 14 `BallSocketConstraint` (лимиты). Рэгдолл = выключить `AnimationConstraint` **кроме сустава `Root`**, плюс `RequiresNeck = false`, `EvaluateStateMachine = false`, опора с капсулы на конечности, камере — якорь.
+The rig is the constructive R15: no `Motor6D`; `AnimationConstraint` holds the pose and `BallSocketConstraint` sets the limits. Ragdoll = disable `AnimationConstraint` **except the `Root` joint**, plus `RequiresNeck = false`, `EvaluateStateMachine = false`, support moved from the capsule to the limbs, an anchor for the camera.
 
-`Root` держит `HumanoidRootPart` на `LowerTorso`, и парного шарнира у него нет: выключишь — рутпарт летит один, тело остаётся лежать.
+`Root` holds `HumanoidRootPart` on `LowerTorso` and has no paired ball socket: disable it and the root part flies alone while the body stays down.
 
-## Прежняя коллизионная группа запоминается
+## The previous collision group is remembered
 
-`RagdollController` при подъёме возвращает прежнюю группу, а не `Default`: иначе персонаж терял бы `Character` и все завязанные на неё правила. Сохранение **ровно один раз** — второе включение записало бы в «исходные» рэгдолльные значения, и персонаж навсегда остался бы в `Ragdoll`.
+`RagdollController` restores the previous group on stand up, not `Default`: otherwise the character would lose `Character` and every rule tied to it. It is saved **exactly once** — a second enable would store ragdoll values as the originals, and the character would stay in `Ragdoll` forever.
 
-## Группы заводит код
+## Groups are registered by code
 
-Шаблон разворачивается в пустой плейс, где редактор Collision Groups пуст, а присваивание незарегистрированной группы падает с ошибкой — первый же `CharacterAdded` уронил бы `RagdollService`. Поэтому `RagdollService:Initialize` прогоняет `CollisionConfig.Groups` и `Rules` через `PhysicsService`. Захочешь вести редактором — убери регистрацию, имена оставь в конфиге.
+The template is deployed into an empty place where the Collision Groups editor is empty, and assigning an unregistered group throws — the first `CharacterAdded` would kill `RagdollService`. So `RagdollService:Initialize` runs `CollisionConfig.Groups` and `Rules` through `PhysicsService`. To manage them in the editor, remove the registration and keep the names in the config.
 
-## Всё, по чему рейкастят, сталкивается с `Default`
+## Everything that is raycast against collides with `Default`
 
-`RaycastParams.CollisionGroup` по умолчанию `Default`, и запрос не видит парты, чья группа с ним не сталкивается. В исходном проекте перенос коллайдера воды в «свою» группу молча убил все рейкасты по воде. В матрице `CollisionConfig` выключена ровно одна пара — `Ragdoll ↔ Ragdoll`: конечности упирались в собственный торс.
+`RaycastParams.CollisionGroup` is `Default`, and a query does not see parts whose group does not collide with it. Moving a water collider into its own group silently killed every water raycast. The `CollisionConfig` matrix turns off exactly one pair — `Ragdoll ↔ Ragdoll`: the limbs pushed against their own torso.

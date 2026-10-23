@@ -1,45 +1,46 @@
-# Мир, рейкасты, физика
+# World, raycasts, physics
 
-## Коллизионные группы и рейкасты
+## Collision groups and raycasts
 
-- **Коллизионная группа фильтрует рейкасты, а не только столкновения.** `RaycastParams.CollisionGroup` = `Default`, и запрос не видит парты, чья группа с ним не сталкивается; `CanCollide` ни при чём. Перенос коллайдера воды в свою группу (`↔Default = false`) молча убил рейкаст воды и серверную валидацию: `nil` читался как «воды нет». Всё, по чему рейкастят, сталкивается с `Default`.
-- **Незарегистрированная группа падает при присваивании** — поэтому группы заводит код.
-- **Вода и земля — только `WorldQuery`.** В каркасе вода — парты с тегом `WorldConfig.WaterTag`; `RaycastGround` их исключает. Воды нет — `RaycastWater` честно вернёт `nil`. Руками `RaycastParams` не собирать: у копий расходятся фильтры.
-- **Луч обязан исключать себя и всех живых.** Луч от собственного пивота попадает в саму модель, и все замеры съезжают на одну величину, оставаясь согласованными. NPC вставал на голову персонажа (`Y = 6.05` вместо 1.32). Список исключений пересобирай раз в тик.
-- **Ground-луч уважает `CanCollide`**, иначе трава даёт опору на 7.2 вместо 1.7.
-- **Служебные невидимые парты** (зоны, триггеры, стены границ) — `CanQuery = false`, иначе становятся «землёй».
-- **Луч сверху цепляет грубые оболочки мешей** (`CollisionFidelity = Default`) в 12–19 студах над полом. Луч опоры стартует от ног плюс допустимый подъём.
-- **Луч, стартующий внутри меша, ничего не находит**, и «ничего» код читает как «пусто/вода». Луч «что здесь» бьётся сверху всей карты.
-- **Логика не зависит от имени парта, который может исчезнуть при `Union`.** Принятие задаёт зона, луч — только для косметики.
-- **Условие «пора звать» и условие «это цель» — одна функция**, иначе вызванный уходит сразу.
+- **A collision group filters raycasts, not only collisions.** `RaycastParams.CollisionGroup` = `Default`, and a query does not see parts whose group does not collide with it; `CanCollide` is irrelevant. Moving the water collider into its own group (`↔Default = false`) silently killed the water raycast and server validation: `nil` read as "no water". Everything that is raycast against collides with `Default`.
+- **An unregistered group throws on assignment** — that is why code registers the groups.
+- **Water and ground only through `WorldQuery`.** In the framework water is parts tagged `WorldConfig.WaterTag`; `RaycastGround` excludes them. Without water `RaycastWater` honestly returns `nil`. Never build `RaycastParams` by hand: copies drift apart in their filters.
+- **A ray must exclude itself and every living character.** A ray from the model's own pivot hits the model, and all measurements shift by one value while staying consistent. An NPC stood on a character's head. Rebuild the exclusion list once per tick.
+- **A ground ray respects `CanCollide`**, otherwise grass gives a support several studs too high.
+- **Invisible service parts** (zones, triggers, boundary walls) have `CanQuery = false`, otherwise they become "ground". A project that needs a sensor to see them records it as a decision.
+- **A ray from above hits rough mesh hulls** (`CollisionFidelity = Default`) well above the floor. A support ray starts from the feet plus the allowed step.
+- **A ray starting inside a mesh finds nothing**, and the code reads "nothing" as "empty/water". A "what is here" ray starts above the whole map.
+- **A ray hitting a vertical face gives a near vertical "floor"**: at a terrain edge alignment rays hit the side face and the object slid down along the wall. A normal steeper than the allowed slope is not a floor; map edges get invisible boundaries.
+- **Logic does not depend on the name of a part that may disappear in a `Union`.** Acceptance is defined by a zone, the ray is only cosmetic.
+- **"Time to call" and "this is the target" are one function**, otherwise the called one leaves at once.
 
-## Сборка карты
+## Building the map
 
-- **Деталь не длиннее 2048 студов** по любой оси: длинный пол и борта собираются из кусков.
-- **Поворот на 180° — не зеркало**: повёрнутый блок декора повторяет левую сторону задом наперёд. Точное зеркало относительно x = 0 — инверсия компонент `CFrame`: `CFrame.new(-x, y, z, r00, -r01, -r02, -r10, r11, r12, -r20, r21, r22)`; текстуры при этом меняют грани `Left`↔`Right`. Асимметричные меши (клинья, юнионы) так зеркалятся приблизительно.
-- **Габарит декора считай по углам деталей**, а не по центрам: по центрам блок декора выглядел шириной ~55, по углам — 101.4, и он не помещался на борт.
-- Правишь карту, которую параллельно правит человек, — сначала пересними состояние: снимок до его правок ведёт к ошибочным выводам.
+- **A part is at most 2048 studs** on any axis: a long floor and walls are built from pieces.
+- **A 180° turn is not a mirror**: a turned decor block repeats the left side backwards. An exact mirror around x = 0 is an inversion of `CFrame` components: `CFrame.new(-x, y, z, r00, -r01, -r02, -r10, r11, r12, -r20, r21, r22)`; textures swap `Left`↔`Right` faces. Asymmetric meshes (wedges, unions) mirror only approximately.
+- **Measure decor size by part corners**, not centers: by centers a decor block looked about half as wide as by corners, and it did not fit.
+- Editing a map the human edits in parallel — take a fresh snapshot first: a snapshot from before their edits leads to wrong conclusions.
 
-## Рэгдолл
+## Ragdoll
 
-- **Поза рэгдолла не реплицируется**: выключенные `AnimationConstraint` живут на одном клиенте, у сервера риг жёсткий. Серверная скорость двигает «одну часть», игрок стоит. `SetNetworkOwner(nil)` усугубляет. Всё, что двигает персонажа физически, — на клиенте.
-- **Порядок**: сначала рэгдолл, потом импульс, в одном кадре — иначе улетает стоя. Скорость — **всем частям тела** ровно один раз: суставы — констрейнты, каждая часть сама себе ассамблея; удержание скорости несколько кадров даёт полёт доской.
-- **`EvaluateStateMachine = false`**, иначе `Humanoid` встаёт каждый кадр. Снять коллизию с рутпарта мало — конечности провалятся; нужна опора на конечностях и группа `Ragdoll`.
-- **Ориентацию тела в физике — через `AlignOrientation`**, не `CFrame` рутпарту (дребезг с шарнирами). У цикла один выход, иначе `AlignOrientation` остаётся висеть. Финальный якорь ставит сервер: `Anchored`, потом `CFrame`.
+- **The ragdoll pose does not replicate**: disabled `AnimationConstraint`s live on one client, the server rig is rigid. A server velocity moves "one part", the player stands. `SetNetworkOwner(nil)` makes it worse. Everything that moves the character physically lives on the client.
+- **Order**: ragdoll first, then the impulse, in one frame — otherwise the character flies standing. The velocity goes to **every body part** exactly once: joints are constraints, each part is its own assembly; holding the velocity for several frames gives a board flight.
+- **`EvaluateStateMachine = false`**, otherwise the `Humanoid` stands up every frame. Removing the root part collision is not enough — limbs fall through; support on the limbs and the `Ragdoll` group are needed.
+- **Body orientation in physics goes through `AlignOrientation`**, not the root part `CFrame` (jitter with the joints). The loop has one exit, otherwise `AlignOrientation` stays hanging. The final anchor is set by the server: `Anchored`, then `CFrame`.
 
-## Физические обломки и временные объекты
+## Physical debris and temporary objects
 
-- Число и время жизни — из конфига; подметать по таймеру, не только по событию (`FallenPartsDestroyHeight` убивает парты, а не модель).
-- Объект, отпущенный сервером из анкора, — `SetNetworkOwner(nil)` и обнуление скорости ([runtime](runtime.md#сетевое-владение-объектами)); иначе симулирует ближайший клиент.
-- Клиент может двигать реплицированный парт локально — на этом строится клиентская косметика, но сервер такую позицию не видит.
+- Count and lifetime come from the config; sweep by a timer, not only by an event (`FallenPartsDestroyHeight` kills parts, not the model).
+- An object released from anchoring by the server — `SetNetworkOwner(nil)` and zero velocity ([runtime](runtime.md#network-ownership-of-objects)); otherwise the nearest client simulates it.
+- A client can move a replicated part locally — client cosmetics are built on that, but the server never sees that position.
 
-## NPC и pathfinding
+## NPC and pathfinding
 
-- **Точки для `ComputeAsync` обязаны стоять на опоре** (+1 студ), иначе `NoPath` даже на ровном полу.
-- **`AgentCollisionGroupName` путь не меняет**; `PathfindingModifier.PassThrough` работает, только если стоит до построения навмеша.
-- **Тело вплотную к агенту даёт `NoPath`**: выключи `CanCollide` у переносимого, сдвинь старт, перебирай цели вокруг.
-- **`Costs` не действуют на запасной `MoveTo`** — запрет местности живёт в самой цели. Пустой список вейпойнтов не должен взводить репас.
-- **Дистанции до цели — с полугабаритами обоих тел**: крупная модель не подъезжает к центру другой.
-- **Нулевое направление — «не поворачивать»**, а не `-LookVector`. «Шаг больше нуля» — не движение: мёртвая зона шага и порог скорости по фактическому смещению.
-- **Аварийный выход обязан двигать** (перебор направлений), иначе «стой, раз стоишь плохо» — вечная ловушка; плюс таймер снятия застрявшего.
-- **Сращивание маршрутов** «новый к концу старого» верно только для стоящего агента.
+- **Points for `ComputeAsync` must stand on support** (+1 stud), otherwise `NoPath` even on a flat floor.
+- **`AgentCollisionGroupName` does not change the path**; `PathfindingModifier.PassThrough` works only if it is there before the navmesh is built.
+- **A body right next to the agent gives `NoPath`**: turn off `CanCollide` of a carried object, move the start, try targets around.
+- **`Costs` do not apply to the fallback `MoveTo`** — the terrain ban lives in the target itself. An empty waypoint list must not trigger a repath.
+- **Distances to a target include half sizes of both bodies**: a large model does not drive into the center of another.
+- **A zero direction means "do not turn"**, not `-LookVector`. "A step above zero" is not movement: a dead zone for the step and a speed threshold by actual displacement.
+- **An emergency exit must move** (try directions), otherwise "stay because you stand badly" is an eternal trap; plus a stuck timer.
+- **Splicing paths** "new to the end of the old" is right only for a standing agent.

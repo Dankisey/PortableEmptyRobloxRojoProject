@@ -35,17 +35,12 @@ export type Timer = {
 	_countTask: thread;
 }
 
---[[
-	Всё, что LoadModules собрал из Modules.Utils, приезжает сервисам
-	и контроллерам в InjectUtils. Добавил утилиту — допиши её сюда,
-	иначе типы протухнут молча.
-]]
+--[[ everything LoadModules collects from Modules.Utils; a utility missing here makes the types go stale silently ]]
 export type Utils = {
 	CharacterUtils: {
-		-- живой персонаж целиком: модель, рутпарт и Humanoid сразу
 		GetAlive: (player: Player) -> (Model?, BasePart?, Humanoid?);
 		GetAliveRoot: (player: Player) -> BasePart?;
-		-- UpperTorso -> Torso -> HumanoidRootPart, что найдётся первым
+		-- UpperTorso -> Torso -> HumanoidRootPart, whichever exists first
 		GetTorso: (character: Model) -> BasePart?;
 	};
 	CubicBezier: CubicBezier;
@@ -56,13 +51,10 @@ export type Utils = {
 		Flatten: (vector: Vector3, fallback: Vector3?) -> Vector3;
 		Direction: (from: Vector3, to: Vector3, fallback: Vector3?) -> Vector3;
 	};
-	-- собирает детей папки в таблицу по имени; упавшие модули только варнит
+	-- failed modules only warn
 	LoadModules: (folder: Instance) -> {[string]: any};
 	TweenPivot: (model: Model, cframe: CFrame, duration: number, easingStyle: Enum.EasingStyle?, easingDirection: Enum.EasingDirection?) -> Tween;
-	--[[
-		Рейкасты мира. Вода и земля — РАЗНЫЕ функции нарочно: рейкаст "где земля"
-		обязан исключать воду, а "где вода" — только её и включать.
-	]]
+	-- water and ground are separate functions on purpose: a ground cast excludes water, a water cast includes only it
 	WorldQuery: {
 		RaycastWater: (origin: Vector3, direction: Vector3) -> RaycastResult?;
 		IsOverWater: (position: Vector3, height: number?) -> boolean;
@@ -70,7 +62,7 @@ export type Utils = {
 		GetWorldFolder: (name: string) -> Folder;
 		CollectTaggedAndFoldered: (tag: string, folderName: string) -> {BasePart};
 	};
-	DeepCopy: (ititialTable: {any}) -> {any};
+	DeepCopy: (initialTable: {any}) -> {any};
 	Event: Event;
 	FormatNumber: (value: number) -> string;
 	FormatTime: (seconds: number, minSlotsAmount: number) -> string;

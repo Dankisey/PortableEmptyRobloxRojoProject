@@ -1,23 +1,3 @@
---[[
-	ToolsController — что у игрока в руках и что происходит по кнопке использования.
-
-	Правило одно: в руках всегда самый приоритетный тул из рук и рюкзака.
-	КАКИЕ тулы у игрока есть, решает сервер; этот контроллер только приводит
-	руки в соответствие.
-
-	Штатной активации нет вовсе: у тулов ставится ManualActivationOnly = true,
-	Tool.Activated не слушает никто. Использование идёт только через
-	UseEquippedTool — его зовут клавиши из ControlsConfig.Use, тап в любую точку
-	экрана (ControlsConfig.Use.TapAnywhere) и экранная кнопка, если игра её заведёт.
-
-	Своей кнопки в каркасе нет намеренно: её вид и место зависят от игры.
-	Что она должна показывать для каждого типа тула, описано в ToolsConfig.Actions,
-	а подпись клавиши на ней ставит Modules.UI.KeyBadge.
-
-	Что делает конкретный тип тула, каркас не знает: игра регистрирует
-	действие сама через RegisterAction в своём Initialize.
-]]
-
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
 local StarterGui = game:GetService("StarterGui")
@@ -27,13 +7,10 @@ local ClientTypes = require(ReplicatedStorage.Modules.ClientTypes)
 local ControlsConfig = require(ReplicatedStorage.Configs.ControlsConfig)
 local ToolsConfig = require(ReplicatedStorage.Configs.ToolsConfig)
 
+--[[ the server decides which tools the player has; this controller keeps the most important one in hand and never listens to Tool.Activated ]]
 local ToolsController = {} :: ClientTypes.ToolsController
 
---[[
-	Стандартный инвентарь Роблокса выключен: тул всегда в руках, и выбирает
-	его игра, а не игрок цифрами. Выключение Backpack заодно освобождает
-	цифровые клавиши и не даёт снять тул кликом по слоту.
-]]
+--[[ the game picks the tool, not the player: the default Backpack would let number keys and slot clicks unequip it ]]
 local function hideBackpackGui()
 	local success, err = pcall(function()
 		StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.Backpack, false)
@@ -52,7 +29,7 @@ local function getToolType(instance: Instance): string?
 	return if type(toolType) == "string" then toolType else nil
 end
 
---[[ свайп камеры тоже начинается касанием: тап отличается от него только после отпускания ]]
+--[[ a camera swipe also starts as a touch: a tap differs from it only after release ]]
 local function isTap(start: {Position: Vector3, Time: number}, input: InputObject): boolean
 	local moved = Vector2.new(input.Position.X - start.Position.X, input.Position.Y - start.Position.Y).Magnitude
 
@@ -65,7 +42,6 @@ local function getPriority(instance: Instance): number
 	return toolType and ToolsConfig.Priority[toolType] or 0
 end
 
---[[ Самый приоритетный тул из рук и рюкзака сразу. ]]
 local function getPreferredTool(self: ClientTypes.ToolsController): Tool?
 	local best, bestPriority = nil, 0
 
@@ -84,19 +60,7 @@ local function getPreferredTool(self: ClientTypes.ToolsController): Tool?
 	return best
 end
 
---[[
-	Взять в руки то, что должно быть в руках.
-
-	НАМЕРЕННО НЕ CharacterUtils.GetAlive: тот требует HumanoidRootPart, а на
-	респавне его ещё нет в том кадре, куда task.defer приводит экипировку —
-	замерено на живом персонаже (humanoid = есть, root = нет). Гвард проваливался
-	молча, и повторить было некому: на респавне Roblox сносит старый Backpack
-	и создаёт новый УЖЕ С СОДЕРЖИМЫМ, за миллисекунду до CharacterAdded, поэтому
-	backpack.ChildAdded по нему не срабатывает вовсе. Итог: после смерти игрок
-	оставался без тула до конца сессии.
-
-	Для EquipTool рутпарт не нужен, нужен живой Humanoid — его и ждём.
-]]
+--[[ not CharacterUtils.GetAlive: the root part does not exist yet on the deferred respawn frame, and the player stayed without a tool for the session ]]
 local function syncEquippedTool(self: ClientTypes.ToolsController)
 	local character = self._player and self._player.Character
 
@@ -105,27 +69,22 @@ local function syncEquippedTool(self: ClientTypes.ToolsController)
 	local preferred = getPreferredTool(self)
 
 	if not preferred then return end
+
 	if preferred.Parent == character then return end
 
 	local humanoid = character:FindFirstChildOfClass("Humanoid")
 		or character:WaitForChild("Humanoid", 5)
 
-	-- пока ждали Humanoid, персонаж мог смениться ещё раз
 	if self._player.Character ~= character then return end
 
 	if not humanoid or humanoid.Health <= 0 then return end
+
 	if not preferred.Parent or preferred.Parent == character then return end
 
 	humanoid:EquipTool(preferred)
 end
 
---[[
-	Подписки на оба контейнера сразу: тул приезжает то в рюкзак (сервер выдал),
-	то в персонажа (Roblox надел). Обе стороны ведут к одной проверке.
-
-	Перебор уже существующих детей обязателен: на респавне Backpack приезжает
-	готовым, и ChildAdded по его содержимому не сработает ни разу.
-]]
+--[[ existing children must be checked: on respawn the Backpack arrives already filled and ChildAdded never fires for it ]]
 local function watchContainers(self: ClientTypes.ToolsController)
 	for _, connection in self._containerConnections do
 		connection:Disconnect()
@@ -133,11 +92,7 @@ local function watchContainers(self: ClientTypes.ToolsController)
 
 	table.clear(self._containerConnections)
 
-	--[[
-		Сброс блокировки обязан быть снаружи гварда: при первом спавне
-		соединений ещё нет, и тул оставался бы заблокированным после
-		респавна в рэгдолле.
-	]]
+	--[[ outside any guard: on the first spawn there are no connections yet, and a respawn while ragdolled would keep the tool blocked ]]
 	self._toolsBlocked = false
 
 	local character = self._player.Character
@@ -157,7 +112,7 @@ local function watchContainers(self: ClientTypes.ToolsController)
 		end))
 	end
 
-	-- при респавне Backpack пересоздаётся, поэтому ищем его заново каждый раз
+	--[[ the Backpack is recreated on respawn, so it is found again every time ]]
 	local backpack = self._player:FindFirstChild("Backpack") or self._player:WaitForChild("Backpack", 10)
 
 	if backpack then
@@ -171,23 +126,12 @@ local function watchContainers(self: ClientTypes.ToolsController)
 	task.defer(syncEquippedTool, self)
 end
 
---[[
-	Привязать поведение к типу тула. Зовётся из Initialize того контроллера,
-	которому этот тул принадлежит.
-
-	onUse     — нажатие кнопки использования
-	onRelease — её отпускание; нужен только тулам, которые УДЕРЖИВАЮТ
-	            (замах, зарядка). Без него отпускание просто не делает ничего.
-]]
+-- onRelease is needed only by tools that hold (windup, charge)
 function ToolsController:RegisterAction(toolType: string, onUse: (Tool) -> (), onRelease: ((Tool) -> ())?)
 	self._useActions[toolType] = onUse
 	self._releaseActions[toolType] = onRelease
 end
 
---[[
-	Блокировка использования. Тул остаётся в руках — просто перестаёт
-	реагировать на кнопку (рэгдолл и прочие состояния).
-]]
 function ToolsController:SetToolsBlocked(isBlocked: boolean)
 	self._toolsBlocked = isBlocked == true
 end
@@ -196,7 +140,6 @@ function ToolsController:AreToolsBlocked(): boolean
 	return self._toolsBlocked == true
 end
 
---[[ Тул в руках. Их всегда не больше одного: Roblox держит в персонаже ровно один. ]]
 function ToolsController:GetEquippedTool(): Tool?
 	local character = self._player and self._player.Character
 
@@ -226,7 +169,6 @@ function ToolsController:ActivateTool(tool: Tool)
 	action(tool)
 end
 
---[[ Единственная точка входа кнопки и её клавиш-двойников. ]]
 function ToolsController:UseEquippedTool()
 	local tool = self:GetEquippedTool()
 
@@ -235,14 +177,7 @@ function ToolsController:UseEquippedTool()
 	self:ActivateTool(tool)
 end
 
---[[
-	Отпускание той же кнопки.
-
-	Гварда по _toolsBlocked здесь НЕТ нарочно. Блокировка могла включиться
-	между нажатием и отпусканием (рэгдолл посреди замаха), и съеденное
-	отпускание оставило бы игрока в замахе навсегда. Отпускание без начатого
-	удержания и так не делает ничего — это решает сам владелец действия.
-]]
+--[[ no blocked guard: blocking may start mid-windup, and an eaten release would leave the player in the windup forever ]]
 function ToolsController:ReleaseEquippedTool()
 	local tool = self:GetEquippedTool()
 
@@ -266,11 +201,7 @@ function ToolsController:AfterPlayerLoaded(player: Player)
 		watchContainers(self)
 	end)
 
-	--[[
-		Клавиши-двойники кнопки. Гвард по gameProcessed здесь уместен: своей
-		engine-овой механики за ЛКМ и правым курком нет, а вот клик по интерфейсу
-		использованием тула быть не должен.
-	]]
+	--[[ the gameProcessed guard belongs on press: a click on the interface must not use the tool ]]
 	UserInputService.InputBegan:Connect(function(input: InputObject, gameProcessed: boolean)
 		if gameProcessed then return end
 
@@ -290,14 +221,7 @@ function ToolsController:AfterPlayerLoaded(player: Player)
 		self:UseEquippedTool()
 	end)
 
-	--[[
-		Отпускание. Гварда по gameProcessed здесь нет: начатое удержание обязано
-		закончиться, где бы курсор ни оказался к этому моменту.
-
-		Касание здесь не отпускает: палец, ушедший со стика, тоже касание и оборвал
-		бы удержание экранной кнопки. Кнопка сама ловит конец своего касания
-		(ButtonsInteractionsConnector:ConnectHoldButton).
-	]]
+	--[[ no gameProcessed guard: a started hold must end wherever the cursor is; a touch never releases here, or a finger leaving the stick would cut the hold button ]]
 	UserInputService.InputEnded:Connect(function(input: InputObject)
 		if input.UserInputType == Enum.UserInputType.Touch then
 			local start = self._touchStarts[input]
@@ -316,10 +240,7 @@ function ToolsController:AfterPlayerLoaded(player: Player)
 		self:ReleaseEquippedTool()
 	end)
 
-	--[[
-		Ушёл фокус окна — отпускания мы уже не увидим вовсе, а начатое удержание
-		блокирует следующее нажатие.
-	]]
+	--[[ after focus loss the release never arrives, and a started hold would block the next press ]]
 	UserInputService.WindowFocusReleased:Connect(function()
 		self:ReleaseEquippedTool()
 	end)
@@ -331,13 +252,13 @@ function ToolsController:InjectUtils(utils)
 	self._utils = utils
 end
 
-function ToolsController.new() : ClientTypes.ToolsController
+function ToolsController.new(): ClientTypes.ToolsController
 	local self = setmetatable(ToolsController, {__index = ControllerTemplate})
 
 	self._containerConnections = {}
 	self._useActions = {}
 	self._releaseActions = {}
-	self._touchStarts = {}  -- [InputObject] = {Position, Time} касания вне интерфейса
+	self._touchStarts = {} -- [InputObject] = {Position, Time} of a touch outside the interface
 	self._toolsBlocked = false
 
 	return self

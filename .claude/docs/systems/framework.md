@@ -1,49 +1,51 @@
-# Фреймворк
+# Framework
 
-Свой DI. `ServerScriptService.ServerBootstrap` → `ServerCore:Start()`, `StarterPlayer.StarterPlayerScripts.ClientBootstrap` → `ClientCore:Start()`. Почему свой, а не Knit/Rojo — [решения](../../decisions/framework.md).
+Own DI. `ServerScriptService.ServerBootstrap` → `ServerCore:Start()`, `StarterPlayer.StarterPlayerScripts.ClientBootstrap` → `ClientCore:Start()`. Why own and not Knit or Rojo — [decisions](../../decisions/framework.md).
 
-## Порядок `Start()`
+## `Start()` order
 
 1. `LoadModules(Modules.Utils)` → `utils`, `LoadModules(Configs)` → `configs`.
-2. `require` прямых детей ядра → `module.new()` → `services` / `controllers`.
+2. `require` of the direct core children → `module.new()` → `services` / `controllers`.
 3. `InjectServices` / `InjectControllers`, `InjectUtils`, `InjectConfigs`.
-4. `Initialize()` (на клиенте `Initialize(player)`) у всех через `task.spawn` + `pcall`.
-5. На клиенте — ждёт атрибут игрока `IsLoaded` и зовёт `AfterPlayerLoaded(player)`.
+4. `Initialize()` (on the client `Initialize(player)`) for everyone through `task.spawn` + `pcall`.
+5. On the client — waits for the `IsLoaded` player attribute and calls `AfterPlayerLoaded(player)`.
 
-Порядок `Initialize` между модулями не задан: сервис не имеет права зависеть от того, кто поднялся раньше.
+The `Initialize` order between modules is not defined: a service may not depend on who started first.
 
-## Сервисы и контроллеры
+## Services and controllers
 
-**Новый сервис = новый ModuleScript в `ServerStorage.ServerCore`**, регистрировать нигде не надо; контроллер — в `ReplicatedStorage.ClientCore`. Фреймворк берёт только прямых детей: вложенные модули (`FooService.Bar`) он не трогает.
+**A new service = a new ModuleScript in `ServerStorage.ServerCore`**, nothing to register; a controller goes into `ReplicatedStorage.ClientCore`. The framework takes only direct children: nested modules (`FooService.Bar`) are left alone.
 
-Сервисы и контроллеры — синглтоны, `self` это сама таблица модуля:
+Services and controllers are singletons, `self` is the module table itself:
 
 ```lua
 function MyService.new()
 	local self = setmetatable(MyService, {__index = ServiceTemplate})
+
 	self._field = {}
+
 	return self
 end
 ```
 
-Следствие: **два модуля с одинаковым именем в ядре молча перетирают друг друга.**
+Consequence: **two modules with the same name in a core silently overwrite each other.**
 
-Инфраструктура, которая сервисом быть не должна, лежит **рядом** с `ServiceTemplate`, а не в `ServerCore`: `ProfileStore`, `SpawnerTemplate`, `ServerTypes`.
+Infrastructure that must not be a service lives **next to** `ServiceTemplate`, not in `ServerCore`: `ProfileStore`, `SpawnerTemplate`, `ServerTypes`, `AdminGui`.
 
 ## GUI
 
-Каждый ребёнок `GuiController` — модуль одноимённого `ScreenGui` в `StarterGui`. `GuiTemplate:CreateChildren` требует одноимённый фрейм для каждого дочернего модуля, **иначе молча прерывает создание остальных**. Обратное безопасно: фрейм без модуля — норма для фреймов без поведения. Кнопки же всегда подключаются модулем через `ButtonsInteractionsConnector`, даже без действия, — иначе у них нет анимации нажатия. Новым `ScreenGui` — `ResetOnSpawn = false`.
+Each `GuiController` child is the module of the `ScreenGui` with the same name in `StarterGui`. `GuiTemplate:CreateChildren` needs a frame with the same name for every child module, **otherwise it silently stops creating the rest**. The reverse is safe: a frame without a module is normal for frames without behavior. Buttons are always connected by a module through `ButtonsInteractionsConnector`, even without an action — otherwise they have no press animation. New `ScreenGui` — `ResetOnSpawn = false`. Layout rules — [ui](../../rules/ui.md).
 
 ## `utils.Event`
 
-`Event.new()`, `:Invoke(...)`, `:Subscribe(key, callback)`, `:Unsubscribe(key)`, `:Destroy()`; `key` уникальный.
+`Event.new()`, `:Invoke(...)`, `:Subscribe(key, callback)`, `:Unsubscribe(key)`, `:Destroy()`; `key` is unique.
 
 ## `SpawnerTemplate`
 
-Общая машина популяции: реестр, лимит, таймеры, цикл под `pcall`. Подключается к сервису, а не живёт сам:
+The shared population machine: registry, limit, timers, a loop under `pcall`. It attaches to a service and does not live on its own:
 
 ```lua
 SpawnerTemplate.InitSpawner(self, {Name, Config, LimitKey, TrySpawn, OnRemove, ShouldSpawn, OnUpdate})
 ```
 
-Методы копируются на сервис напрямую: свой `__index` сервис уже занял под `ServiceTemplate`.
+Methods are copied onto the service directly: the service `__index` is already taken by `ServiceTemplate`.

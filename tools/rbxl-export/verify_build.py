@@ -1,5 +1,5 @@
-"""Сверка скриптов двух .rbxl по пути, классу и тексту: собранного `rojo build` из src/ и исходного плейса.
-usage: python -I verify_build.py <built.rbxl> <place.rbxl>   (код выхода 1 при расхождении)"""
+"""Compares scripts of two .rbxl files by path, class and text: the `rojo build` output from src/ and the original place.
+usage: python -I verify_build.py <built.rbxl> <place.rbxl>   (exit code 1 on a mismatch)"""
 import importlib.util, os, sys
 
 spec = importlib.util.spec_from_file_location("export_rbxl", os.path.join(os.path.dirname(os.path.abspath(__file__)), "export_rbxl.py"))
@@ -25,8 +25,8 @@ def main(built, place):
     a, b = scripts(built), scripts(place)
     missing, extra = sorted(set(b) - set(a)), sorted(set(a) - set(b))
     differ = sorted(k for k in a if k in b and a[k] != b[k])
-    print(f"в сборке: {len(a)}, в плейсе: {len(b)}")
-    for title, items in (("нет в сборке", missing), ("лишние", extra), ("класс или текст расходятся", differ)):
+    print(f"in the build: {len(a)}, in the place: {len(b)}")
+    for title, items in (("missing from the build", missing), ("extra", extra), ("class or text differ", differ)):
         for k in items:
             print(f"{title}: {k}")
     sys.exit(1 if missing or extra or differ else 0)

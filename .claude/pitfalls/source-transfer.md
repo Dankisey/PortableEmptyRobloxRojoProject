@@ -1,43 +1,58 @@
-# Перенос исходников
+# Source transfer
 
-`execute_luau` файлы не читает и не пишет, а `HttpService` из него закрыт (`lacking capability Network`). Localhost-транспорт ниже верен для настоящего `Script` или плагина, но через MCP не заводится.
+**`execute_luau` neither reads nor writes files, `HttpService` is closed from it (`lacking capability Network`), and `http_get` reaches only the Roblox documentation.** A localhost transport works for a real `Script` or a plugin, but not through MCP. There are no Source copies on disk ([decision](../decisions/framework.md#no-rojo-rollback-through-version-history)); transfer is needed for builders, checks and moving code between places.
 
-## Из Studio на диск
+## From Studio to disk and back
 
-Без MCP весь Source берётся из сохранённого плейса: [`tools/rbxl-export`](../../tools/rbxl-export/export_rbxl.py) читает `.rbxl` (zstd и LZ4) и раскладывает скрипты по Rojo с побайтовой сверкой. Несохранённые правки Studio в файл не попадают — сначала `File → Save`.
+Without MCP the whole Source comes from a saved place: [`tools/rbxl-export`](../../tools/rbxl-export/export_rbxl.py) reads `.rbxl` (zstd and LZ4) and lays scripts out for Rojo with a byte check. Unsaved Studio edits do not reach the file — `File → Save` first.
 
-Текст пишется на диск инструментом `Write`, совпадение с плейсом — контрольной суммой, а не «на глаз» и не длиной (длина совпадает и при испорченной кодировке):
+Text goes twice: the file is written to disk with the `Write` tool, into Studio — through `execute_luau` with a long string `[==[ ... ]==]` (tabs and non-ASCII characters in the parameter pass unharmed).
+
+- Lua drops the newline right after `[==[` — file and Source match byte for byte if the file starts without an empty line and ends with one newline.
+- Make a point edit with a function using `source:find(old, 1, true)` and a check that there is one occurrence; make the same edit in the file with the `Edit` tool.
+- Slicing `.Source` by bytes breaks multibyte characters and hangs the response; cut by lines.
+- Heredoc in Bash fails on non-ASCII (`unexpected EOF`) — write such files with `Write`.
+- The text for a checksum is `ScriptEditorService:GetEditorSource`: `.Source` of a script open in the editor may lag ([pitfall](roblox-studio.md#source-is-empty-or-stale--checks-read-geteditorsource)).
+
+## Checksum
+
+Length and djb2 must match for every file; length alone is not enough — with broken encoding it may still match. In Studio:
 
 ```lua
-local sum, hash = 0, 5381
+local hash = 5381
 for i = 1, #source do
-	local b = source:byte(i)
-	sum += b
-	hash = (hash * 33 + b) % 4294967296
+	hash = (hash * 33 + source:byte(i)) % 4294967296
 end
-return #source, sum, hash
+return #source, hash
 ```
 
-Ту же сумму считай по файлу на диске (Python: байты UTF-8). Разница в 1 байт — перевод строки в конце.
+On disk (run Python from a short directory: Windows refuses to start `python` from a session directory with a long path):
 
-- Heredoc в Bash падает на не-ASCII (`unexpected EOF`) — файлы с русскими комментариями пиши `Write`.
-- Выгрузку кладёт `backup/<дата>-<что>/` с путём инстанса в имени файла.
+```bash
+cd /c && python -I -c "import glob,os
+for f in sorted(glob.glob('<folder>/*.lua')):
+    h=5381
+    for b in open(f,'rb').read(): h=(h*33+b)%4294967296
+    print(os.path.basename(f)[:-4], os.path.getsize(f), h)"
+```
 
-## Копия внутри плейса
+A 1 byte difference is the trailing newline.
 
-Старый скрипт — в `ServerStorage` с `Disabled = true`: не исполняется, байты точные. Такие копии вычитай из нормы компиляции.
+## A copy inside the place
 
-## Между плейсами одного юниверса
+An old script goes into `ServerStorage` with `Disabled = true`: it does not run, the bytes are exact. Subtract such copies from the compilation norm.
 
-Общий `DataStore`: `SetAsync` в источнике, `GetAsync` в приёмнике, `RemoveAsync` сразу после. `GetAsync`/`RemoveAsync` из `execute_luau` в Edit работают (проверено), капабилити `Network` не нужна; `SetAsync` требует **Studio Access to API Services** — оборачивай в `pcall`. Сверка — контрольной суммой.
+## Between places of one universe
 
-## Между разными юниверсами
+A shared `DataStore`: `SetAsync` in the source, `GetAsync` in the target, `RemoveAsync` right after. `GetAsync`/`RemoveAsync` from `execute_luau` in Edit work, no `Network` capability needed; `SetAsync` needs **Studio Access to API Services** — wrap it in `pcall`. Verify with a checksum.
 
-`DataStore` не общий. Собрать в источнике папку с копиями, попросить человека `Copy → Paste Into` в целевом окне и разложить скриптом. Team Create разные плейсы не синхронизирует.
+## Between different universes
 
-## Инстансы и карта
+The `DataStore` is not shared. Collect a folder of copies in the source, ask the human to `Copy → Paste Into` in the target window and lay it out with a script. Team Create does not sync different places.
 
-- Шаблоны `Sound`, разметка — инстансы; скриптом между юниверсами не переносятся, пересоздаются по свойствам.
-- Вставленная из другого окна карта смещается не вся: объекты верхнего уровня уезжают на дельту, содержимое папок остаётся. Проставляй точные `CFrame` из исходника; сравнивай габариты объект к объекту.
-- Terrain буфером обмена не копируется. Сначала посмотри, что там: часто это одна вода прямоугольником — тогда `Terrain:FillBlock` плюс свойства воды. `ReadVoxels` — не больше 4 194 304 вокселей за вызов; `Terrain.MaxExtents` отдаёт константу `±32000`.
-- Атрибуты `RBX_*` с моделей из Toolbox нельзя даже обнулять: `CoreScript permission required` роняет весь скрипт. Исключай префикс или `pcall` на каждое обнуление.
+## Instances and the map
+
+- `Sound` templates and layout are instances; a script cannot carry them between universes — copy them by hand or recreate them by properties.
+- A map inserted from another window does not shift as a whole: top level objects move by a delta, folder contents stay. Set exact `CFrame`s from the source; compare sizes object by object.
+- Terrain is not copied by the clipboard. First look at what is there: often it is one water rectangle — then `Terrain:FillBlock` plus water properties. `ReadVoxels` — at most 4 194 304 voxels per call; `Terrain.MaxExtents` returns the constant `±32000`.
+- `RBX_*` attributes on Toolbox models cannot even be cleared: `CoreScript permission required` kills the whole script. Skip the prefix or `pcall` each clear.

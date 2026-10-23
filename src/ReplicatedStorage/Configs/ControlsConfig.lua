@@ -1,31 +1,13 @@
---[[
-	Управление предметом в руках: какие клавиши слушаем и как подписываем кнопки.
-
-	Клавиша и её подпись обязаны лежать в ОДНОЙ секции. Разъехавшись, они врут
-	игроку, а заметить это можно только глазами и только на нужном устройстве.
-
-	Подписей на мобилке нет нигде: там по кнопке жмут пальцем, и пустая строка
-	в Labels значит "бейджа нет вовсе" (см. Modules.UI.KeyBadge).
-]]
-
+--[[ a key and its label live in one section: when they drift apart the label lies to the player; an empty label means no badge ]]
 local ControlsConfig = {}
 
---[[
-	Использование того, что в руках: клавиши, тап в любую точку экрана и экранная
-	кнопка, если игра её заведёт. Единственная точка входа — ToolsController:UseEquippedTool.
-
-	ToolsController слушает и нажатие, и отпускание: тул может требовать
-	удержания (замах, зарядка). Касание тул не отпускает: экранная кнопка
-	удержания ловит конец своего касания сама (ConnectHoldButton).
-]]
 ControlsConfig.Use = {
 	MouseButton = Enum.UserInputType.MouseButton1;
 	GamepadKeyCode = Enum.KeyCode.ButtonR2;
 
-	-- касание вне интерфейса и стика использует тул на отпускании, как в кликерах; выключено — тул только клавишами и кнопкой
-	TapAnywhere = false;
-	TapMaxMove = 10; -- пикселей сдвига пальца
-	TapMaxDuration = .25; -- секунд на экране
+	TapAnywhere = false; -- a touch outside the interface and the stick uses the tool on release, like in clickers
+	TapMaxMove = 10; -- pixels of finger movement
+	TapMaxDuration = .25; -- seconds on screen
 
 	Labels = {
 		Desktop = "LMB";
@@ -34,13 +16,6 @@ ControlsConfig.Use = {
 	};
 }
 
---[[
-	Своя механика заводит свою секцию по этому же образцу, а не дописывает
-	клавишу в чужую: секция — это пара "чем нажимают" и "как подписано".
-
-	Отдельно про пробел: он в Roblox прыжок, и просто слушать его нельзя.
-	Перехватывать надо через ContextActionService с приоритетом High и снимать
-	бинд на КАЖДОМ выходе из состояния — подробности в .claude/pitfalls/input-and-ui.md.
-]]
+--[[ a new mechanic adds its own section; Space is jump and must be bound through ContextActionService at High and unbound on every exit ]]
 
 return ControlsConfig

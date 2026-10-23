@@ -2,17 +2,20 @@
 paths: [".claude/docs/systems/remotes-and-values.md", ".claude/decisions/input-and-ui.md", ".claude/pitfalls/input-and-ui.md"]
 ---
 
-# Ввод, тулы, интерфейс, камера
+# Input, tools, camera
 
-- **Всё в руках — `Tool`** с атрибутом `ToolsConfig.ToolTypeAttribute`. `ManualActivationOnly = true`, `Tool.Activated` не слушать. Использование — только `ToolsController:UseEquippedTool()`/`ReleaseEquippedTool()`; действие регистрирует владелец механики через `RegisterAction`.
-- Экранную кнопку использования заводит игра по контракту `ToolsConfig.Actions` + `Modules.UI.KeyBadge` (`KeyBadge.Bind` — подпись по `UserInputService.PreferredInput`, не по устройству). Клавиша и подпись — из одной секции `ControlsConfig`; новая механика заводит свою секцию. Тап в любую точку экрана — флаг `ControlsConfig.Use.TapAnywhere`, выключен.
-- Кнопки — только через `ButtonsInteractionsConnector` (`InputBegan` с фильтром ввода), не `Activated`: тот приходит по отпусканию. Подключается **каждая** видимая кнопка, включая будущие без действия (пустой колбэк): анимация нажатия с отскоком и звук клика есть только у подключённых. Кнопка удержания — `ConnectHoldButton`: сжатие держится, пока зажата, отскок и возврат — только на отпускании. Коннектор сам выключает `AutoButtonColor` — затемнение не нужно.
-- Курсор виден в третьем лице; `InputController` прячет его только при `CameraMode = LockFirstPerson`.
-- У отпускания нет гварда по `gameProcessed`. Касание отпускает тул только через кнопку, которая ловит конец своего касания (`ConnectHoldButton`): любое отпускание касания отпускало бы тул и от пальца со стика. Ввод кастомных промптов гвардится `GetFocusedTextBox()`, а не `gameProcessed`.
-- Пробел — прыжок: перехват через `ContextActionService` на `High` и снятие бинда на **каждом** выходе из состояния, включая рэгдолл.
-- GUI-разметкой владеет Studio: статические `Position`/`Size`/`AnchorPoint` кодом не перезаписывать, клоны наследуют шаблон. `Position` и `Size` — только в скейле, оффсеты нулевые; квадрат — скейлом и `UIAspectRatioConstraint`. Новый `ScreenGui` — `ResetOnSpawn = false`. Модуль `GuiController` без одноимённого фрейма молча обрывает создание остальных.
-- **Интерфейс не топит ввод мыши в центре экрана.** `BillboardGui.Active` — только на тач-устройствах; полноэкранное гасится `Visible = false`.
-- Камера: режим — свойство `StarterPlayer.CameraMode`. `LockFirstPerson` требует `CameraConfig.FirstPersonVisibility`; свой бинд прозрачности — на `Camera.Value + 1`.
-- Мобилки — основная платформа: кнопки не меньше пальца, ничего важного под стиком и кнопкой прыжка, проверка в портрете и ландшафте. Обводки `UIStroke` — смотри режим `StrokeSizingMode`, а не толщину.
+Interface layout, buttons and screens — [ui](ui.md).
 
-Перед правкой прочитай [remotes-and-values](../docs/systems/remotes-and-values.md), [решения](../decisions/input-and-ui.md) и [грабли](../pitfalls/input-and-ui.md).
+- **Everything in hand is a `Tool`** with the `ToolsConfig.ToolTypeAttribute` attribute. `ManualActivationOnly = true`, `Tool.Activated` is not listened to. Use goes only through `ToolsController:UseEquippedTool()`/`ReleaseEquippedTool()`; the mechanic owner registers the action with `RegisterAction`.
+- The game adds the on-screen use button by the `ToolsConfig.Actions` contract plus `Modules.UI.KeyBadge` (`KeyBadge.Bind` — the label follows `UserInputService.PreferredInput`, not the device). A key and its label come from one `ControlsConfig` section; a new mechanic adds its own section. Tap anywhere on screen — the `ControlsConfig.Use.TapAnywhere` flag, off.
+- One key — one mechanic in one state. A `ProximityPrompt` on the same key takes it before `ContextActionService` ([pitfall](../pitfalls/input-and-ui.md#keys)).
+- Buttons go only through `ButtonsInteractionsConnector` (`InputBegan` with an input filter), not `Activated`: it fires on release. **Every** visible button is connected, including future ones without an action (empty callback): the press animation with bounce and the click sound exist only on connected buttons. A hold button is `ConnectHoldButton`: the squeeze holds while pressed, bounce and return happen only on release. The connector turns off `AutoButtonColor` itself.
+- A game field for taps inside a mini game is not a button: it listens to its own `InputBegan` and `UserInputService.InputEnded` for the same `InputObject`, without the connector, or the press animation squeezes the whole field.
+- The cursor is visible in third person; `InputController` hides it only with `CameraMode = LockFirstPerson`.
+- Release has no `gameProcessed` guard. A touch releases a tool only through a button that catches the end of its own touch (`ConnectHoldButton`): any touch release would also fire from the stick finger. Custom prompt input is guarded by `GetFocusedTextBox()`, not `gameProcessed`.
+- Space is jump: intercept through `ContextActionService` at `High` and unbind on **every** exit from the state, ragdoll included.
+- **The interface never sinks mouse input in the screen center.** `BillboardGui.Active` only on touch devices; full screen elements are hidden with `Visible = false`.
+- Camera: the mode is the `StarterPlayer.CameraMode` property. `LockFirstPerson` requires `CameraConfig.FirstPersonVisibility`; an own transparency bind goes on `Camera.Value + 1`.
+- Phones are the main platform: buttons at least finger sized, nothing important under the stick and the jump button. The game is landscape only (`StarterGui.ScreenOrientation = LandscapeSensor`, [decision](../decisions/input-and-ui.md#landscape-only)).
+
+Before an edit read [remotes-and-values](../docs/systems/remotes-and-values.md), [decisions](../decisions/input-and-ui.md) and [pitfalls](../pitfalls/input-and-ui.md).

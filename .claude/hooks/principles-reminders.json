@@ -1,0 +1,21 @@
+{
+  "Animation": {
+    "keywords": ["Animator", "AnimationTrack", "AnimationId", "LoadAnimation", "KeyframeSequence", "Keyframe", "Pose", "TweenService", "TweenInfo", "RenderStepped", "UIScale"],
+    "lines": [
+      "Animation edit — check against .claude/docs/animation-principles.md:",
+      "1. Name the principles the motion uses (anticipation, timing, arcs, follow through, slow in and slow out, exaggeration...).",
+      "2. Go through the checklist: player response first, tails stop without a snap on interruption, ragdoll or death.",
+      "3. In the report: principle -> how it is applied; what only eyes can check goes to [visual]."
+    ]
+  },
+  "UI": {
+    "keywords": ["ScreenGui", "PlayerGui", "StarterGui", "TextButton", "ImageButton", "TextLabel", "ImageLabel", "UIListLayout", "UIGridLayout", "UIAspectRatioConstraint", "SizeConstraint", "AnchorPoint", "UIPadding", "UIStroke", "BillboardGui", "SurfaceGui"],
+    "lines": [
+      "Interface edit — follow .claude/rules/ui.md and check against .claude/docs/ui-principles.md:",
+      "1. A reference from the user exists; the layout is a prepared template, code only clones it and changes content.",
+      "2. Empty transparent buttons with visual children, center anchors, SizeConstraint for proportions, wrapped UIListLayout with spacing in the template cell.",
+      "3. One font family per window, currency in every purchase button, buttons away from window edges, landscape phone readability.",
+      "4. In the report: the principles the screen relies on; readability and feel go to [visual]."
+    ]
+  }
+}

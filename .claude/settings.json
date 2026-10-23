@@ -2,11 +2,21 @@
   "hooks": {
     "PreToolUse": [
       {
-        "matcher": "^mcp__Roblox_Studio__(multi_edit|execute_luau|script_grep|start_stop_play)$",
+        "matcher": "^mcp__Roblox_Studio__(multi_edit|execute_luau|script_grep|start_stop_play|user_keyboard_input)$",
         "hooks": [
           {
             "type": "command",
             "command": "python \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/roblox-mcp-reminder.py\" 2>/dev/null || true",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "^mcp__Roblox_Studio__(multi_edit|execute_luau)$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/principles-reminder.py\" 2>/dev/null || true",
             "timeout": 5
           }
         ]

@@ -33,9 +33,9 @@ local NumberPostfixes = {
 	[32] = "Tg";
 }
 
-local SignificantDigits = 3 -- 1.38K, 13.8K, 138K; до тысячи — целое
+local SignificantDigits = 3 -- below a thousand the value is a whole number
 
---[[ отбрасывание, а не округление: 999.9K не превращается в «1000K», а прогресс не забегает вперёд ]]
+--[[ truncation, not rounding: a value just under the next postfix never shows as the next one, and progress never runs ahead ]]
 local function formatNumber(value: number): string
 	if value ~= value or math.abs(value) == math.huge then
 		return "???"

@@ -1,71 +1,79 @@
-# Модели и анимации
+# Models and animations
 
-## Геометрия моделей
+Every animation is also checked against the [animation principles](../docs/animation-principles.md).
 
-- **`Model:ScaleTo` абсолютный**: `ScaleTo(.667)` ставит масштаб от исходной геометрии, стирая прежний. Домножай: `model:ScaleTo(model:GetScale() * scale)`.
-- **`BasePart.ExtentsSize` равен локальному `Size`** и поворот не учитывает (у цилиндра, повёрнутого осью вверх, «высота» 10 вместо 0,2 — объекты встали на 4,9 стада под землю). Высоту в мире считай по осям: `|Right.Y|·X + |Up.Y|·Y + |Look.Y|·Z`.
-- **`Model:GetBoundingBox` меряет по пивоту**, не по миру: у повёрнутой модели «лежит или стоит» по нему врёт. Высоту считай по углам партов в мире; сомнительный вывод — скриншотом.
-- **`Model.WorldPivot` игнорируется, пока задан `PrimaryPart`**; `PivotTo` работает в системе пивота, а пивот может быть повёрнут и сдвинут относительно `PrimaryPart` (у 11 из 85 моделей поворот на 90°). Учитывай в утилите размещения.
-- **`PrimaryPart` моделей из паков — прозрачный кубик 1×1×1**, точка сборки рига. Переставь на самую объёмную часть среди **прямых** детей: поиск по потомкам находит аксессуары.
-- **`PrimaryPart` реплицируется отдельно от модели**: клиентский `ChildAdded` видит модель с `PrimaryPart = nil` при стриминге и спавне на входе. Ожидание плюс фолбэк на первый `BasePart`.
-- **Коллизию и массу несёт невидимый бокс**, а не видимая часть: почти кубическая часть застывает в любой ориентации. Габарит считай в системе эталонной части, не `GetExtentsSize`.
-- **`WeldConstraint` возвращает парт на запомненное место**, а `Size` меняется честно — после правки пересоздай связь.
-- **Сварка вне `Workspace` не двигает приваренное**: сверка позы на клоне вне мира даёт ложные 62.8°. Сверяй только парты суставов.
-- **Сваренная модель в `Workspace` — жёсткая сборка**: `CFrame` одного парта двигает всё, а не гнёт сустав. Числа считай на клоне вне `Workspace`, картинку — настоящим `Animator` в мире.
-- **Модель, переложенная в подпапку ассетов, теряется по жёсткому пути** молча. Ищи `Assets:FindFirstChild(name, true)` по имени из конфига. Папка ассетов не совпадает по имени с мировой, иначе уборка снесёт шаблоны.
-- **Превью в `ViewportFrame`** центрируй по габариту, дистанцию — от угла обзора:
+## Model geometry
+
+- **`Model:ScaleTo` is absolute**: `ScaleTo(.667)` sets the scale from the original geometry and erases the previous one. Multiply: `model:ScaleTo(model:GetScale() * scale)`.
+- **`BasePart.ExtentsSize` equals the local `Size`** and ignores rotation (a cylinder turned axis up had "height" 10 instead of 0.2 — objects sank into the ground). Compute world height by axes: `|Right.Y|·X + |Up.Y|·Y + |Look.Y|·Z`.
+- **`Model:GetBoundingBox` measures by the pivot**, not the world: for a turned model "lies or stands" is wrong by it. Compute height by part corners in the world; a doubtful conclusion — by a screenshot.
+- **`Model.WorldPivot` is ignored while `PrimaryPart` is set**; `PivotTo` works in the pivot space, and the pivot may be turned and shifted relative to `PrimaryPart` (some pack models had a 90° turn). Account for it in a placement utility.
+- **The `PrimaryPart` of pack models is a transparent 1×1×1 cube**, the rig assembly point. Move it to the most massive part among the **direct** children: a search over descendants finds accessories.
+- **`PrimaryPart` replicates separately from the model**: a client `ChildAdded` sees the model with `PrimaryPart = nil` while streaming and on join spawns. Wait plus a fallback to the first `BasePart`.
+- **Collision and mass are carried by an invisible box**, not the visible part: an almost cubic part freezes in any orientation. Compute the size in the reference part space, not `GetExtentsSize`.
+- **`WeldConstraint` returns the part to the remembered place**, while `Size` changes honestly — recreate the weld after an edit.
+- **A weld outside `Workspace` does not move the welded part**: checking a pose on a clone outside the world gives a false angle. Check only joint parts.
+- **A welded model in `Workspace` is a rigid assembly**: the `CFrame` of one part moves everything instead of bending a joint. Compute numbers on a clone outside `Workspace`, the picture with a real `Animator` in the world.
+- **A model moved into an asset subfolder is silently lost by a hard path.** Search `Assets:FindFirstChild(name, true)` by a name from the config. The asset folder name differs from the world one, otherwise cleanup removes the templates.
+- **Preview in a `ViewportFrame`**: center by the bounding box, distance from the field of view:
   ```lua
   local boundingCFrame, size = model:GetBoundingBox()
   model:PivotTo(CFrame.new(-boundingCFrame.Position) * model:GetPivot())
   local distance = size.Magnitude * .5 / math.tan(math.rad(camera.FieldOfView) * .5) * 1.2
   ```
 
-## Тул в руке
+## Imported meshes
 
-- **`Tool.Grip` позиционирует `Handle`**, а центр `Handle` у разных моделей смещён по-разному — грип считают:
+- **A skinned model of several meshes comes with an invisible `RootPart`**: the importer adds a transparent `Part` with `Motor6D`s to the meshes, its bottom below the visible feet. A size over all parts lifted the model above the ground. Compute placement size without parts with `Transparency >= 1`; check — the bottom of the visible mesh is on the ground.
+- **Vertices without weights in a skinned mesh stretch a thread across the scene**: a couple of unweighted vertices drew a black thread tens of studs long. Give such vertices the weights of the nearest bound vertex in the export script if they are a tiny share of the mesh; almost unbound meshes are rigid parts and stay as is. Check — the count of zero weight vertices in the export and the model look.
+- **Vertex colors multiply by `MeshPart.Color`**: the import sets the default grey, and every vertex colored model looked a third darker than the source. Set `Color` to white in the builder; check — no `MeshPart` with the grey `Color` and a frame next to a copy on white.
+
+## Tool in hand
+
+- **`Tool.Grip` positions the `Handle`**, and the `Handle` center is offset differently in different models — compute the grip:
   ```lua
-  -- Handle = ТочкаХвата * Grip:Inverse();  Тело = Handle * BodyOffset
+  -- Handle = GripPoint * Grip:Inverse();  Body = Handle * BodyOffset
   tool.Grip = bodyOffset * target:Inverse()
   ```
-  Проверка: `ТочкаХвата * Grip:Inverse() * BodyOffset == ТочкаХвата * Цель`, невязка 1e-6. Перенос в `Tool` берёт только прямых детей.
-- **У сгенерированного меша рукоять не по центру габарита**: у `Mallet` она наклонена на 32° и в точке хвата смещена на 0,65 студа — кисть висела рядом с рукоятью. `Grip` считай по оси рукояти из вершин: `AssetService:CreateEditableMeshAsync(Content.fromUri(MeshId))`, центры поясов нижних 40% высоты, регрессия, `Grip = CFrame.fromMatrix(точка, right, ось)`.
-- **Позы двуручного хвата подбираются расчётом, не на глаз**: 13 углов вслепую не сходились. Прямая кинематика конструктивного рига — `Part1 = Part0 * Att0.CFrame * Pose.CFrame * Att1.CFrame:Inverse()` по `*RigAttachment`, совпала с живой позой до 1e-4; углы правой руки — покоординатный спуск под положение кисти и направление молота, с проверкой досягаемости конца рукояти для левой руки.
-- **Быстрый удар из двух ключей ломает дугу**: запись пути головы молота показала удар за 4 кадра с поворотом 40–57° на кадр, замах съедался переходом, после удара — разворот на 167°. Дуга и время задаются функциями, ключи — на каждый кадр (1/60 с, `Linear`), суставы решаются покадрово с тёплым стартом от прошлого кадра. Проверка — путь кончика по кадрам: поворот должен меняться плавно.
-- **`Trail` на быстром ударе — многоугольник**: точка ставится раз в кадр. Гладкий след — сплайн Catmull-Rom через точки кадров из `Beam`: аттачменты с осью X по касательной, `CurveSize0/1 = |касательная| / 3`. Аттачменты в `workspace.Terrain` задаются мировыми `CFrame`.
-- **Присед ног в анимации удара на бегу даёт скольжение**: ноги — отдельным треком выше приоритетом и только когда `Humanoid.MoveDirection` почти ноль. Присед — сдвиг `LowerTorso` вниз в позе `Root`, стопы держатся на месте решением углов ног.
-- **`IKControl` на риге с `AnimationConstraint` работает**, но вплотную не дотягивает: кисть остаётся в 0,3 студа от цели и выгибает руку под неестественными углами — от него отказались, руки решаются ключами.
-- **Кисти у груди складывают руку R15 в замок**: дуга рук радиусом 0,55 студа дала локти 140° и предплечье внутри плеча. От плечевого сустава до точки хвата у эталонного R15: локоть 0° — 1,94, 60° — 1,70, 80° — 1,53, 100° — 1,33 студа. Держи хват в ~1,5 студа от плеча, локоть до 100° и ниже линии плечо—кисть.
-- **Хват, заданный только направлением рукояти, крутит молот вокруг неё**: решатель выбирал поворот ради удобства запястья, и голова шла поперёк дуги до 75°. Ось головы (X грипа у всех молотов) держи вдоль касательной дуги отдельной целью; проверка — угол между осью головы и движением `HeadTip` по кадрам.
-- **Части руки эталонного R15 рисуются цветом плеча**: `Color` предплечья и кисти меняется, а на экране цвет плеча. Для разбора позы — `Highlight` с `FillColor` на каждую часть.
-- **`Grip` без поворота ставит длинный предмет торчком**: у `RightGripAttachment` R15 `LookVector = (0, -1, 0)`. Знак — по позиции кончика в системе рутпарта.
-- **Эталонный риг врёт про ориентацию грипа**: `CreateHumanoidModelFromDescription` даёт риг на `Motor6D`, а персонаж каркаса — конструктивная R15 на `AnimationConstraint`. Ориентацию перебирай на живом туле в Play пробой (16 кандидатов за прогон); эталон годится для позиции.
-- Цепочка конструктивного рига: `Part1.CFrame = Part0.CFrame * Attachment0.CFrame * Поза * Attachment1.CFrame:Inverse()`; `Motor6D` нет. Подъём предмета — `atan2(axis.Y, -axis.Z)` по `UpVector` рукояти; двумя руками R15 держит предмет только приблизительно (кисть не дотягивается на 0.87).
+  Check: `GripPoint * Grip:Inverse() * BodyOffset == GripPoint * Target`, residual 1e-6. A move into a `Tool` takes only direct children.
+- **The handle of a generated mesh is off the bounding box center**: it was tilted and offset at the grip point — the hand hung next to the handle. Compute `Grip` along the handle axis from vertices: `AssetService:CreateEditableMeshAsync(Content.fromUri(MeshId))`, centers of slices in the lower part of the height, a regression, `Grip = CFrame.fromMatrix(point, right, axis)`.
+- **Two-handed grip poses are found by calculation, not by eye**: a dozen angles tried blindly never converged. Forward kinematics of the constructive rig — `Part1 = Part0 * Att0.CFrame * Pose.CFrame * Att1.CFrame:Inverse()` over `*RigAttachment` matched the live pose to 1e-4; right arm angles — coordinate descent toward the hand position and the tool direction, checking that the left hand can reach the handle end.
+- **A fast hit of two keys breaks the arc**: a recorded path of the tool head showed the hit in a few frames with tens of degrees of turn per frame, the windup eaten by the transition, a near half turn after the hit. Arc and timing are functions, keys go on every frame (1/60 s, `Linear`), joints are solved frame by frame with a warm start from the previous frame. Check — the tip path by frames: the turn changes smoothly.
+- **A `Trail` on a fast hit is a polygon**: a point is placed once per frame. A smooth trail is a Catmull-Rom spline through frame points made of `Beam`s: attachments with the X axis along the tangent, `CurveSize0/1 = |tangent| / 3`. Attachments in `workspace.Terrain` take world `CFrame`s.
+- **A leg crouch in a running hit animation gives sliding**: legs go on a separate higher priority track and only when `Humanoid.MoveDirection` is near zero. The crouch is a `LowerTorso` shift down in the `Root` pose, feet stay in place by solving leg angles.
+- **`IKControl` on a rig with `AnimationConstraint` works**, but does not reach fully: the hand stays a fraction of a stud from the target and bends the arm at unnatural angles — arms are solved with keys instead.
+- **Hands at the chest fold an R15 arm into a lock**: a small radius arc of the hands gave sharp elbow angles and the forearm inside the shoulder. From the shoulder joint to the grip point of the reference R15: elbow 0° — 1.94, 60° — 1.70, 80° — 1.53, 100° — 1.33 studs. Keep the grip about 1.5 studs from the shoulder, the elbow up to 100° and below the shoulder–hand line.
+- **A grip given only by the handle direction spins the tool around it**: the solver picked a rotation for wrist comfort, and the head went across the arc. Keep the head axis along the arc tangent as a separate goal; check — the angle between the head axis and the tip motion by frames.
+- **Parts of the reference R15 arm render in the shoulder color**: the forearm and hand `Color` changes, the screen shows the shoulder color. To inspect a pose — a `Highlight` with `FillColor` on each part.
+- **A `Grip` without rotation stands a long item upright**: the R15 `RightGripAttachment` has `LookVector = (0, -1, 0)`. The sign — by the tip position in the root part space.
+- **The reference rig lies about the grip orientation**: `CreateHumanoidModelFromDescription` gives a `Motor6D` rig, while the framework character is the constructive R15 on `AnimationConstraint`. Try orientations on a live tool in Play with a probe; the reference is good for position.
+- The constructive rig chain: `Part1.CFrame = Part0.CFrame * Attachment0.CFrame * Pose * Attachment1.CFrame:Inverse()`; there is no `Motor6D`. Raising an item — `atan2(axis.Y, -axis.Z)` by the handle `UpVector`; R15 holds an item with two hands only approximately.
 
-## Анимации
+## Animations
 
-- **Серверный `Animator` реплицирует команду, а не состояние трека**: запущенная до входа игрока анимация до него не доедет. В Studio работает (игрок подключён к `Initialize`), на проде — столбом. Постоянное — на клиенте, состояние — атрибутом.
-- **`Enum.PoseEasingStyle` — только `Linear`, `Constant`, `Elastic`, `Cubic`, `Bounce`, `CubicV2`**: `Quad` нет, и ошибка в конструкторе таблицы кадров рвёт весь вызов. Стиль позы задаёт переход **из** неё к следующему кадру.
-- **Короткий удар без рывка в конце**: незацикленный трек на последнем кадре отпускает позу мгновенно — заморозь его `AdjustSpeed(0)` и гаси `Stop(fade)`; следующий `Play(fade, 1, 1)` возвращает скорость.
-- **Незацикленный трек по окончании отпускает позу.** Держать позу — зацикленный клип в уже занятой позе плюс `track:Play(fadeTime)`: фейд и есть замах. Доигравший трек смерти на мгновение ставит труп в стойку.
-- **Зацикленный клип короче фазы отыгрывает свой выход посреди неё**: цикл держит состояние на всех кадрах, вход и выход — фейдами трека.
-- **Чужие анимации не играются**: `LoadAnimation` без ошибки, модель стоит. Вытащить их нельзя (`GetKeyframeSequenceAsync` — 0 кадров, `GetAnimationClipAsync` — `failed to load`). Но и свои свежеопубликованные отдавали 0 кадров пять раз подряд: проверка — `LoadAnimation` + `Play` и длина трека. Холодный кэш: первый вызов падает по таймауту. Объекты от `KeyframeSequenceProvider` не `Destroy()`.
-- **Свои опубликованные анимации в Edit не играются, но читаются**: `LoadAnimation` по `rbxassetid` в Edit даёт `Length = 0`, а `GetKeyframeSequenceAsync` возвращает ключи — по ним сверяй опубликованное с локальным. После таких попыток `Animator` пробного рига перестал грузить и локальные треки — пересоздай `Animator`. Проигрывание проверяй в Play.
-- **`RegisterKeyframeSequence`** даёт голый хеш (32 hex) — ставь в `AnimationId` как есть, `hash://` падает. В Edit треки двигай `animator:StepAnimations(dt)` на `Heartbeat`; `StepAnimations(0)` не доводит вес до 1 — сделай несколько шагов и проверь `WeightCurrent == 1.00`. `AnimationTrack.Length` сразу после `LoadAnimation` — 0.
-- **Заанкоренный парт `Motor6D` не двигает**: трек играет, `WeightCurrent = 1.00`, модель стоит. Якорь только корню рига (парт, не являющийся `Part1` ни одного сустава), остальным `Massless`, `CanCollide = false`.
-- **Модель может потерять `Animator`** — «не работает одна модель». `FindFirstChildWhichIsA("Animator", true)`, иначе варнинг.
-- **`BreakJointsOnDeath`** разносит риг на анимации смерти — `false`.
-- **Анимация не роняет корень**: им владеет `Humanoid`. Роняет сервер (`PlatformStand`, якорь, `TweenPivot`), анимация только обмякает.
-- **Скиннёные модели анимируются костями** (`HasSkinnedMesh`): `Pose` по именам `Bone`, имя корневого `Pose` = имени парта-владельца костей. Замеры — по `Bone.Transform`.
-- **`Pose` с `Weight = 0` не входит в блендинг** — так строятся частичные клипы поверх базового цикла. Генератор, ставящий `identity` везде, сбрасывает базу. Два клипа одного приоритета переключай вручную.
-- **Оптимизация кадров** выбрасывает повторяющиеся позы — обход `Keyframe` неполон; проверяй проигрыванием (`TimePosition` + выборка).
-- **Публикация анимаций**: `AssetService:CreateAssetAsync` в Studio — `not available yet`, `plugin` в `execute_luau` нет. Рабочий путь — `.rbxmx` кодом и Open Cloud `POST https://apis.roblox.com/assets/v1/assets` с ключом, который создаёт и держит человек; в проект, документы и чат ключи не попадают. Потерянный ответ — не повторять POST слепо.
-- Позу «запекают» в `C0` сустава (`C0' = C0покоя * Поза`), запомнив позу покоя, иначе повторный прогон умножит ещё раз.
-- Поза из Animation Editor читается прямо из `Bone.Transform` (точность 1e-7), но земли в редакторе нет — прижимай расчётом.
+- **A server `Animator` replicates the command, not the track state**: an animation started before a player joined never reaches them. In Studio it works (the player is connected before `Initialize`), live — a pole. Permanent ones on the client, state as an attribute.
+- **`Enum.PoseEasingStyle` has only `Linear`, `Constant`, `Elastic`, `Cubic`, `Bounce`, `CubicV2`**: there is no `Quad`, and the error in a keyframe table constructor breaks the whole call. A pose style sets the transition **out of** it into the next keyframe.
+- **A short hit without a snap at the end**: a non-looped track releases the pose instantly on the last frame — freeze it with `AdjustSpeed(0)` and fade it out with `Stop(fade)`; the next `Play(fade, 1, 1)` restores the speed.
+- **A non-looped track releases the pose at its end.** To hold a pose — a looped clip in the already taken pose plus `track:Play(fadeTime)`: the fade is the windup. A finished death track puts the corpse into a stance for a moment.
+- **A looped clip shorter than its phase plays its exit in the middle of it**: the loop holds the state on all frames, entry and exit are track fades.
+- **Other people's animations do not play**: `LoadAnimation` without an error, the model stands. They cannot be extracted (`GetKeyframeSequenceAsync` — 0 frames, `GetAnimationClipAsync` — `failed to load`). Own freshly published ones also returned 0 frames several times in a row: check with `LoadAnimation` + `Play` and the track length. A cold cache: the first call fails by timeout. Objects from `KeyframeSequenceProvider` are not `Destroy()`ed.
+- **Own published animations do not play in Edit but can be read**: `LoadAnimation` by `rbxassetid` in Edit gives `Length = 0`, while `GetKeyframeSequenceAsync` returns the keys — compare the published one with the local one by them. After such attempts the test rig `Animator` stopped loading local tracks too — recreate the `Animator`. Check playback in Play.
+- **`RegisterKeyframeSequence`** returns a bare hash (32 hex) — put it into `AnimationId` as is, `hash://` fails. In Edit move tracks with `animator:StepAnimations(dt)` on `Heartbeat`; `StepAnimations(0)` does not bring the weight to 1 — make several steps and check `WeightCurrent == 1.00`. `AnimationTrack.Length` right after `LoadAnimation` is 0.
+- **An anchored part is not moved by `Motor6D`**: the track plays, `WeightCurrent = 1.00`, the model stands. Anchor only the rig root (a part that is no joint's `Part1`), the rest `Massless`, `CanCollide = false`.
+- **A model can lose its `Animator`** — "one model does not work". `FindFirstChildWhichIsA("Animator", true)`, otherwise a warning.
+- **`BreakJointsOnDeath`** breaks the rig on the death animation — `false`.
+- **An animation never drops the root**: the `Humanoid` owns it. The server drops it (`PlatformStand`, anchor, `TweenPivot`), the animation only goes limp.
+- **Skinned models animate by bones** (`HasSkinnedMesh`): `Pose` by `Bone` names, the root `Pose` name = the name of the part owning the bones. Measure by `Bone.Transform`. `Pose.CFrame` equals `Bone.Transform`, and the Animator finds a pose by the bone name under any chain above the bone tree. Check a clip before publishing with `KeyframeSequenceProvider:RegisterKeyframeSequence` on a client copy, positions — `Bone.TransformedWorldCFrame`.
+- **A `Pose` with `Weight = 0` is left out of blending** — that is how partial clips over a base loop are built. A generator that puts `identity` everywhere resets the base. Two clips of one priority are switched by hand.
+- **Keyframe optimization** drops repeating poses — a `Keyframe` walk is incomplete; check by playback (`TimePosition` + sampling).
+- **Publishing animations**: `AssetService:CreateAssetAsync` in Studio — `not available yet`, there is no `plugin` in `execute_luau`. The working path — `.rbxmx` by code and Open Cloud `POST https://apis.roblox.com/assets/v1/assets` with a key the human creates and keeps; keys never enter the project, documents or chat. A lost response — do not repeat the POST blindly.
+- A pose is "baked" into a joint `C0` (`C0' = C0rest * Pose`) remembering the rest pose, otherwise a second run multiplies again.
+- A pose from the Animation Editor is read straight from `Bone.Transform` (precision 1e-7), but the editor has no ground — press it down by calculation.
 
-## Мелкие детали пропадают издалека
+## Small parts disappear from a distance
 
-Симптом: воксельные модели из деталей 0,25–0,5 стада с 40–60 студов «сыпятся» — часть брусков не рисуется, у полого ящика сквозь дыры видна трава; крупные детали старых моделей целы. Воспроизводится и в Edit.
+Symptom: voxel models made of small parts "crumble" from a medium distance — some bricks are not drawn, grass shows through the holes of a hollow box; large parts of older models are fine. Reproduces in Edit too.
 
-Причина — движок не рисует детали, маленькие на экране, и дальность зависит от уровня графики ([DevForum](https://devforum.roblox.com/t/all-parts-disappearing-at-graphics-level-1/2300988)); точные правила — проверить в актуальной документации Roblox. Стриминг ни при чём: модели клиентские.
+Cause — the engine does not draw parts that are small on screen, and the distance depends on the graphics level ([DevForum](https://devforum.roblox.com/t/all-parts-disappearing-at-graphics-level-1/2300988)); the exact rules need a check in the current Roblox documentation. Streaming is not involved: the models are client side.
 
-Исправление: у целого объекта воксели слиты в крупные бруски, закрытая полость залита, куски для развала — отдельной моделью. Проверка — кадр с 60 студов: ящики без сквозных дыр.
+Fix: in a whole object voxels are merged into large bricks, a closed cavity is filled, pieces for breaking are a separate model. Check — a frame from that distance: boxes without holes.

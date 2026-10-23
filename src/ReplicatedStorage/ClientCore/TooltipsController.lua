@@ -3,11 +3,7 @@ local ControllerTemplate = require(ReplicatedStorage.Modules.ControllerTemplate)
 
 local TooltipsController = {}
 
---[[
-	Проверка на nil обязательна: у объекта, уже вынутого из иерархии, цепочка
-	Parent заканчивается не на game, а на nil — старое условие падало на nil:IsA
-	раньше, чем успевало вернуть nil.
-]]
+--[[ the parent chain of a removed object ends in nil, not game ]]
 local function getGuiParent(uiObject: GuiObject) : ScreenGui?
 	local parent = uiObject.Parent
 

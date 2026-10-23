@@ -1,54 +1,64 @@
-# Ремоуты, значения, управление
+# Remotes, values, controls
 
-## Ремоуты (`ReplicatedStorage.Remotes`)
+## Remotes (`ReplicatedStorage.Remotes`)
 
 `ClientInitialized`, `KickRequested`, `SoundRequested`, `UI` (`PopupRequested`, `ServerMessageSent`), `Monetization` (`DevProductRequested`, `GamepassRequested`), `Ragdoll.StateChanged`.
 
-`Ragdoll.StateChanged` идёт `FireAllClients(target, enabled, impulse)`: позу собирает каждый клиент, импульс применяет только владелец.
+`Ragdoll.StateChanged` goes `FireAllClients(target, enabled, impulse)`: every client builds the pose, only the owner applies the impulse.
 
-Каждый новый ремоут: сервер проверяет аргументы (тип, диапазон, дистанцию, кулдаун, принадлежность объекта игроку) до любого действия.
+Outside `Remotes`: `AdminGui.CommandRequested` lives in the admin panel clone in `PlayerGui` and is seen only by its owner; arguments are the command name and a number (for `AddCash`). The server checks that the sender owns the clone and is in `DevelopersConfig`, the `AdminConfig.RequestCooldown`, the name against `AdminConfig.Commands` and the number — a whole number from 1 to `MaxAmount`.
+
+Every new remote: the server checks the arguments (type, range, distance, cooldown, object ownership) before any action.
 
 ## `GameValues`
 
-Папка пустая — сюда кладутся `Value`-инстансы состояния рана. Они реплицируются даром, поэтому ремоут для показа счётчика не нужен: модуль подписывается на `Changed` в `AfterPlayerLoaded`. Не прочитался сейв — на счётчике остаётся `...`, а не `0`.
+The folder is empty — run state `Value` instances go here. They replicate for free, so a counter needs no remote: the module subscribes to `Changed` in `AfterPlayerLoaded`. If the save is not read, the counter stays `...`, not `0`.
 
-## Атрибуты игрока
+## Player attributes
 
-Ставит только сервер; клиентская запись остаётся локальной. Атрибуты игрока видны всем клиентам.
+Only the server sets them; a client write stays local. Player attributes are visible to all clients.
 
-| Атрибут | Кто ставит | Что значит |
+| Attribute | Set by | Meaning |
 |---|---|---|
-| `IsLoaded` | `SavesLoader` | загрузка сейва **закончилась** (не обязательно удачно); клиент ждёт его перед `AfterPlayerLoaded` |
-| `JoinTime`, `OwnsPremium`, `CanPurchaseRandomItems`, атрибуты геймпассов | `SavesLoader` | данные входа |
-| `Cash` | `SoftCurrencyService` | баланс; имя атрибута = имя валюты |
+| `IsLoaded` | `SavesLoader` | the save load **finished** (not necessarily successfully); the client waits for it before `AfterPlayerLoaded` |
+| `IsClientInitialized` | `ServerCore` on `ClientInitialized` | `ClientCore` finished `Start()`; the admin panel is delivered after it |
+| `JoinTime`, `OwnsPremium`, `CanPurchaseRandomItems`, game pass attributes | `SavesLoader` | join data |
+| `Cash` | `SoftCurrencyService` | balance; attribute name = currency name |
 
-Сохраняемое значение публикует владелец раздела ([saves](saves.md#разделы)); атрибута нет — сейв не загружен, на счётчике `...`.
+A saved value is published by its section owner ([saves](saves.md#sections)); no attribute means the save is not loaded, the counter shows `...`.
 
-## Тулы и кнопка использования
+## Instance attributes
 
-**Всё, что игрок держит в руках, — `Tool`.** Тип — строка в атрибуте `ToolsConfig.ToolTypeAttribute` (`"ToolType"`) на самом туле; ставит его тот, кто тул создаёт.
+| Attribute | Where | Set by | Meaning |
+|---|---|---|---|
+| `DeveloperPurchasesEnabled` | `ServerStorage.ServerCore.Monetization` | `Monetization:SetDeveloperPurchasesEnabled` | free developer purchases on this server; `false` in the place |
+| `DeveloperPurchasesEnabled` | the `AdminGui` clone in `PlayerGui` | `AdminService` | mirror of the module attribute for the panel label |
 
-| Кто | Что делает |
+## Tools and the use button
+
+**Everything the player holds is a `Tool`.** The type is a string in the `ToolsConfig.ToolTypeAttribute` (`"ToolType"`) attribute on the tool itself; whoever creates the tool sets it.
+
+| Who | What |
 |---|---|
-| Сервер | создаёт тул, кладёт в рюкзак, ставит атрибут типа |
-| `ToolsConfig.Priority` | какой тул важнее, если их несколько |
-| `ToolsController` | берёт в руки самый приоритетный из рук и рюкзака |
-| `ToolsController:RegisterAction` | что делает использование конкретного типа |
-| `ToolsConfig.Actions` | подпись и иконка экранной кнопки |
-| `Modules.UI.KeyBadge` | подпись клавиши в углу этой кнопки |
+| Server | creates the tool, puts it into the backpack, sets the type attribute |
+| `ToolsConfig.Priority` | which tool matters more if there are several |
+| `ToolsController` | equips the highest priority one from hand and backpack |
+| `ToolsController:RegisterAction` | what using a given type does |
+| `ToolsConfig.Actions` | label and icon of the on-screen button |
+| `Modules.UI.KeyBadge` | key label in the corner of that button |
 
-Тулам ставится `ManualActivationOnly = true`, `Tool.Activated` не слушает никто. Использование — только `ToolsController:UseEquippedTool()`: клавиши `ControlsConfig.Use`, экранная кнопка игры и, если включён `TapAnywhere`, короткий тап вне интерфейса ([решение](../../decisions/input-and-ui.md#тап-в-любую-точку-экрана--под-флагом-выключен)). Второй вход — `ReleaseEquippedTool()`: по `InputEnded` мыши и геймпада и при потере фокуса окна; касание не отпускает — кнопка удержания ловит конец своего касания сама (`ConnectHoldButton`).
+Tools get `ManualActivationOnly = true`, nobody listens to `Tool.Activated`. Use goes only through `ToolsController:UseEquippedTool()`: `ControlsConfig.Use` keys, the game's on-screen button and, with `TapAnywhere` on, a short tap outside the interface ([decision](../../decisions/input-and-ui.md#tap-anywhere-on-screen--behind-a-flag-off)). The second entry is `ReleaseEquippedTool()`: on mouse and gamepad `InputEnded` and on window focus loss; a touch never releases — the hold button catches the end of its own touch (`ConnectHoldButton`).
 
-**Экранной кнопки в каркасе нет.** Заводит её игра: подключает `ConnectHoldButton(button, UseEquippedTool, ReleaseEquippedTool)`, показывает по записи `ToolsConfig.Actions` для типа тула в руках, подпись клавиши — `KeyBadge.Bind`.
+**There is no on-screen button in the framework.** The game adds it: connects `ConnectHoldButton(button, UseEquippedTool, ReleaseEquippedTool)`, shows it by the `ToolsConfig.Actions` entry for the held tool type, the key label is `KeyBadge.Bind`.
 
-## Управление (`ControlsConfig`)
+## Controls (`ControlsConfig`)
 
-`ControlsConfig.Use`: `MouseButton1`, `ButtonR2`, `TapAnywhere = false` (`TapMaxMove` 10 px, `TapMaxDuration` .25 с); подписи `LMB` / `RT` / на мобилке пусто (бейджа нет). Клавиша и подпись лежат в одной секции; новая механика заводит свою секцию. Бейдж выбирает подпись по `UserInputService.PreferredInput`: текст на ПК, глиф через `GetImageForKeyCode` на геймпаде, нет бейджа на касании.
+`ControlsConfig.Use`: `MouseButton1`, `ButtonR2`, `TapAnywhere = false` (`TapMaxMove` in pixels, `TapMaxDuration` in seconds); labels `LMB` / `RT` / empty on phones (no badge). A key and its label live in one section; a new mechanic adds its own section. The badge picks its label by `UserInputService.PreferredInput`: text on PC, a glyph through `GetImageForKeyCode` on gamepad, no badge on touch.
 
-## Кнопки интерфейса
+## Interface buttons
 
-Все кнопки идут через `ButtonsInteractionsConnector`: `GuiObject.InputBegan` с фильтром по типу ввода, а не `GuiButton.Activated`. Колбэк на каждое нажатие, анимация отдельно (сжатие `.9`, отскок `1.06`, покой `.97`), дубли одного тапа режет `DuplicateInputWindow`, `AutoButtonColor` выключается при подключении.
+All buttons go through `ButtonsInteractionsConnector`: `GuiObject.InputBegan` with an input type filter, not `GuiButton.Activated`. The callback runs on every press, the animation separately (squeeze, bounce, rest), `DuplicateInputWindow` drops duplicates of one tap, `AutoButtonColor` is turned off on connect.
 
-## Камера
+## Camera
 
-Режим — **свойство** `StarterPlayer.CameraMode` (в шаблоне третье лицо). Курсор скрыт только при `LockFirstPerson`. Включаешь `LockFirstPerson` — включи и `CameraConfig.FirstPersonVisibility`. Подробности — [input-and-ui](../../rules/input-and-ui.md).
+The mode is the `StarterPlayer.CameraMode` **property** (third person in the template). The cursor is hidden only with `LockFirstPerson`. Turning on `LockFirstPerson` — also turn on `CameraConfig.FirstPersonVisibility`. Details — [input-and-ui](../../rules/input-and-ui.md).

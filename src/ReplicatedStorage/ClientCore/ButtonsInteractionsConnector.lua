@@ -1,45 +1,28 @@
-local Mouse = game:GetService("Players").LocalPlayer:GetMouse()
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
+
+local Mouse = game:GetService("Players").LocalPlayer:GetMouse()
+
+local ControllerTemplate = require(ReplicatedStorage.Modules.ControllerTemplate)
 
 local tweenInfo = TweenInfo.new(.08, Enum.EasingStyle.Quad)
 local BounceTweenInfo = TweenInfo.new(.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 local SettleTweenInfo = TweenInfo.new(.12, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut)
 
-local RestScale = .97 -- размер покоя; под курсором кнопка растёт до 1
+local RestScale = .97 -- under the cursor the button grows to 1
 local PressedScale = .9
-local BounceScale = 1.06 -- перелёт после нажатия: это и есть «баунс»
+local BounceScale = 1.06 -- overshoot after the press
 
---[[
-	Окно, внутри которого второе срабатывание считается дубликатом одного и того же
-	нажатия: часть устройств присылает тап дважды. Оно нарочно КОРОТКОЕ — любое
-	осмысленное повторное нажатие (например, отмена выбора слота) должно проходить.
-]]
-local DuplicateInputWindow = .05
-
-local ControllerTemplate = require(ReplicatedStorage.Modules.ControllerTemplate)
+--[[ some devices send one tap twice; kept short so a deliberate second press still passes ]]
+local DuplicateInputWindow = .05 -- seconds
 
 local ButtonsInteractionsConnector = {}
 
---[[
-	Что считается нажатием кнопки.
-
-	Колбэк обязан идти В МОМЕНТ НАЖАТИЯ. Activated для этого не годится:
-	он приходит по ОТПУСКАНИЮ, а подсечка в мини-игре меряется по нажатию —
-	на отпускании бегунок успевает уехать с секции, и игрок промахивался мимо
-	того, куда целился.
-
-	MouseButton1Down тоже не годится, и это уже оплачено багом: это событие
-	мыши, на касании оно приходит не на всех устройствах, и кнопка молча
-	не работала на телефоне.
-
-	Остаётся GuiObject.InputBegan с фильтром по типу ввода: он приходит ровно
-	на нажатие и одинаково работает с мышью, тапом и кнопкой геймпада. Фильтр
-	обязателен: InputBegan приходит и на наведение мыши (MouseMovement).
-]]
+--[[ InputBegan, not Activated (fires on release) or MouseButton1Down (missing on some touch devices); the filter drops MouseMovement ]]
 local function isPressInput(input: InputObject): boolean
 	if input.UserInputType == Enum.UserInputType.MouseButton1 then return true end
+
 	if input.UserInputType == Enum.UserInputType.Touch then return true end
 
 	return input.KeyCode == Enum.KeyCode.ButtonA
@@ -106,7 +89,7 @@ local function isEnabled(button)
 	return true
 end
 
---[[ твин только на смене цели: твин каждый кадр на каждую кнопку просаживал телефоны на экранах с магазином ]]
+--[[ tween only when the target changes: a tween per frame per button dropped phone frame rates on busy screens ]]
 local function startHovering(self, button: GuiButton, newScale: UIScale)
 	local playHoverSound = false
 	local targetScale = RestScale
@@ -122,8 +105,8 @@ local function startHovering(self, button: GuiButton, newScale: UIScale)
 		while self._connectedButtons[button].IsActive do
 			task.wait()
 
-			-- анимация нажатия сама вернёт масштаб покоя
-			if self._tweenigButtons[button] then
+			--[[ the press animation returns the rest scale itself ]]
+			if self._tweeningButtons[button] then
 				targetScale = RestScale
 
 				continue
@@ -158,7 +141,7 @@ local function prepareButton(self, button: GuiButton): UIScale
 	newScale.Parent = button
 	newScale.Scale = RestScale
 
-	--[[ штатное затемнение Roblox на наведении и нажатии не нужно: отклик даёт масштаб ]]
+	--[[ the scale is the feedback; the default darkening is not wanted ]]
 	button.AutoButtonColor = false
 
 	startHovering(self, button, newScale)
@@ -166,9 +149,10 @@ local function prepareButton(self, button: GuiButton): UIScale
 	return newScale
 end
 
---[[ касания различаются объектом, а мышь и геймпад могут прислать отпускание новым объектом ]]
+--[[ touches differ by object, but mouse and gamepad may send the release as a new object ]]
 local function isSameInput(pressed: InputObject, input: InputObject): boolean
 	if input == pressed then return true end
+
 	if pressed.UserInputType == Enum.UserInputType.Touch then return false end
 
 	return input.UserInputType == pressed.UserInputType and input.KeyCode == pressed.KeyCode
@@ -178,14 +162,14 @@ function ButtonsInteractionsConnector:DisconnectButton(button: GuiButton)
 	if not self._connectedButtons[button] then return end
 
 	task.spawn(function()
-		while self._tweenigButtons[button] do
+		while self._tweeningButtons[button] do
 			task.wait()
 		end
 
 		local uiScale = button:FindFirstChildOfClass("UIScale")
 
 		if uiScale then
-			local tween = TweenService:Create(uiScale, tweenInfo, {Scale = .97})
+			local tween = TweenService:Create(uiScale, tweenInfo, {Scale = RestScale})
 			tween:Play()
 		end
 
@@ -204,13 +188,12 @@ function ButtonsInteractionsConnector:DisconnectButton(button: GuiButton)
 	end)
 end
 
-function ButtonsInteractionsConnector:ConnectButton(button: GuiButton, callback: (any) -> (), ... : any)
+function ButtonsInteractionsConnector:ConnectButton(button: GuiButton, callback: (any) -> (), ...: any)
 	if self._connectedButtons[button] then return end
 
 	local newScale = prepareButton(self, button)
 	local args: any = table.pack(...)
 
-	--[[ Именно нажатие, а не отпускание — почему, см. isPressInput. ]]
 	self._connectedButtons[button].Connection = button.InputBegan:Connect(function(input: InputObject)
 		if not isPressInput(input) then return end
 
@@ -220,19 +203,14 @@ function ButtonsInteractionsConnector:ConnectButton(button: GuiButton, callback:
 
 		self._lastActivations[button] = now
 
-		--[[
-			Колбэк идёт на КАЖДОЕ нажатие, а не только когда кнопка свободна от
-			анимации. Раньше анимация длиной .24 с съедала каждое второе быстрое
-			нажатие: на телефоне это читалось как "выбор слота работает через раз",
-			а отмена выбора повторным тапом не работала вовсе.
-		]]
+		--[[ the callback runs on every press, not only when the animation is idle, or fast taps are eaten ]]
 		task.spawn(function()
 			callback(table.unpack(args))
 		end)
 
-		if self._tweenigButtons[button] then return end
+		if self._tweeningButtons[button] then return end
 
-		self._tweenigButtons[button] = true
+		self._tweeningButtons[button] = true
 
 		local press = TweenService:Create(newScale, tweenInfo, {Scale = PressedScale})
 		press:Play()
@@ -248,11 +226,11 @@ function ButtonsInteractionsConnector:ConnectButton(button: GuiButton, callback:
 		settle:Play()
 		settle.Completed:Wait()
 
-		self._tweenigButtons[button] = nil
+		self._tweeningButtons[button] = nil
 	end)
 end
 
---[[ удержание: сжатие на нажатии и держится, отскок и возврат — только на отпускании; конец ловится через UserInputService — палец уезжает с кнопки, и её InputEnded не приходит ]]
+--[[ the press squeeze holds until release; the end is caught through UserInputService because a finger slides off and the button's InputEnded never comes ]]
 function ButtonsInteractionsConnector:ConnectHoldButton(button: GuiButton, onPress: () -> (), onRelease: () -> ())
 	if self._connectedButtons[button] then return end
 
@@ -263,7 +241,7 @@ function ButtonsInteractionsConnector:ConnectHoldButton(button: GuiButton, onPre
 		if not isPressInput(input) or pressed then return end
 
 		pressed = input
-		self._tweenigButtons[button] = true
+		self._tweeningButtons[button] = true
 		TweenService:Create(newScale, tweenInfo, {Scale = PressedScale}):Play()
 		self._controllers.SoundPlayer:PlaySound(self._configs.SoundNames.Click)
 		task.spawn(onPress)
@@ -279,7 +257,7 @@ function ButtonsInteractionsConnector:ConnectHoldButton(button: GuiButton, onPre
 		bounce:Play()
 		bounce.Completed:Wait()
 
-		-- зажали снова посреди отскока: сжатие уже играет
+		--[[ pressed again mid-bounce: the squeeze is already playing ]]
 		if pressed then return end
 
 		local settle = TweenService:Create(newScale, SettleTweenInfo, {Scale = RestScale})
@@ -287,15 +265,16 @@ function ButtonsInteractionsConnector:ConnectHoldButton(button: GuiButton, onPre
 		settle.Completed:Wait()
 
 		if not pressed then
-			self._tweenigButtons[button] = nil
+			self._tweeningButtons[button] = nil
 		end
 	end)
 end
 
 function ButtonsInteractionsConnector.new()
 	local self = setmetatable(ButtonsInteractionsConnector, {__index = ControllerTemplate})
+
 	self._isMobile = isMobile()
-	self._tweenigButtons = {}
+	self._tweeningButtons = {}
 	self._lastActivations = {}
 	self._connectedButtons = {}
 	self._buttonsParent = {}

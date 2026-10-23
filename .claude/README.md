@@ -1,32 +1,34 @@
-# Документация проекта для Claude Code
+# Project documentation for Claude Code
 
-Вход — [CLAUDE.md](../CLAUDE.md). `workflow` и `code-style` грузятся всегда; остальные правила читаются явно по таблице корня — код живёт в Studio, и `paths` срабатывает только на локальных документах. Почему так — [agent-docs](decisions/agent-docs.md).
+Entry — [CLAUDE.md](../CLAUDE.md). `workflow` and `code-style` always load; other rules are read explicitly from the root table — code lives in Studio, and `paths` fires only on local documents. Why — [agent-docs](decisions/agent-docs.md).
 
-## Где хранить факт
+## Where a fact lives
 
-| Файл / каталог | Содержание |
+| File / folder | Content |
 |---|---|
-| `CLAUDE.md` | Общие ограничения, карта проекта и маршрут чтения |
-| [rules/](rules/documentation.md) | Требования по областям |
-| [decisions.md](decisions.md) / decisions/ | Выбор, причина, цена, условие пересмотра |
-| [pitfalls/](pitfalls/README.md) | Симптом → причина → исправление → проверка |
-| [docs/systems/](docs/systems/README.md) | Фактическое устройство: DI, модули, API, сейв, ремоуты |
-| [docs/concept.md](docs/concept.md) | Действующий замысел игры |
-| [docs/roadmap-to-prototype.md](docs/roadmap-to-prototype.md) | Вехи, развилки, критерии приёмки |
-| [docs/milestones-done.md](docs/milestones-done.md) | Принятые результаты |
-| [docs/debts.md](docs/debts.md) | Открытые работы, баги и решения |
-| [hooks/](hooks/roblox-mcp-reminders.json) | Памятки PreToolUse на инструменты Studio MCP |
+| `CLAUDE.md` | Shared constraints, project map and reading route |
+| [rules/](rules/documentation.md) | Requirements by area |
+| [decisions.md](decisions.md) / decisions/ | Choice, reason, cost, revision condition |
+| [pitfalls/](pitfalls/README.md) | Symptom → cause → fix → check |
+| [docs/systems/](docs/systems/README.md) | Actual structure: DI, modules, API, saves, remotes |
+| [docs/animation-principles.md](docs/animation-principles.md) | 12 animation principles in games and the check for every animation |
+| [docs/ui-principles.md](docs/ui-principles.md) | Nielsen heuristics, UX in Motion, game UX pillars and the check for every screen |
+| [docs/concept.md](docs/concept.md) | Current game concept |
+| [docs/roadmap-to-prototype.md](docs/roadmap-to-prototype.md) | Milestones, forks, acceptance criteria |
+| [docs/milestones-done.md](docs/milestones-done.md) | Accepted results |
+| [docs/debts.md](docs/debts.md) | Open work, bugs and decisions |
+| [hooks/](hooks/roblox-mcp-reminders.json) | PreToolUse reminders for Studio MCP tools and the [principles](hooks/principles-reminders.json) |
 
-Один факт подробно — в одном месте, в остальных граница и ссылка. Закрытый долг удаляется, полезная регрессия остаётся в pitfalls.
+One fact in detail in one place, elsewhere a scope line and a link. A closed debt is deleted, a useful regression stays in pitfalls. Documentation is English and impersonal: no dates, no names of other projects.
 
-## Архив
+## Archive
 
-Проекта без git: закрытые планы и выгрузки Source — в `backup/`. Архив не задаёт действующих правил.
+No git: closed plans go to `backup/`. Code rollback is the place version history. The archive sets no rules.
 
-## Проверка
+## Check
 
-После правки документации из корня:
+After a documentation edit, from the root:
 
     powershell -NoProfile -ExecutionPolicy Bypass -File tools/documentation/check-agent-docs.ps1
 
-[Скрипт](../tools/documentation/check-agent-docs.ps1) проверяет индексы rules/decisions/pitfalls/systems, `paths` правил, локальные ссылки и anchors, JSON памяток. Он не подтверждает факты игры и доставку хука.
+The [script](../tools/documentation/check-agent-docs.ps1) checks rules/decisions/pitfalls/systems indexes, rule `paths`, local links and anchors, hook JSON and the absence of Cyrillic. It does not confirm game facts or hook delivery.

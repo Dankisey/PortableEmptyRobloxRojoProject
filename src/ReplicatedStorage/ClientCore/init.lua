@@ -1,7 +1,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Player = game:GetService("Players").LocalPlayer
 
---[[ Напрямую по пути: на момент загрузки утилит таблицы utils ещё не существует. ]]
+--[[ required by path: the utils table does not exist yet while utils are loading ]]
 local LoadModules = require(ReplicatedStorage.Modules.Utils.LoadModules)
 
 local ClientCore = {}
@@ -66,7 +66,7 @@ function ClientCore:Start()
 				local success, value = pcall(controller.Initialize, controller, Player)
 
 				if not success then
-					warn("Error occured while initializing controller " .. name ..":", value)
+					warn("Error occurred while initializing controller " .. name ..":", value)
 				else
 					table.insert(initializedControllerNames, name)
 				end
@@ -81,7 +81,7 @@ function ClientCore:Start()
 	until (#initializedControllerNames == #controllerNames - #controllersWithoutInitializing) or (elapsedInitializingTime >= InitializingMaxTime)
 
 	if #initializedControllerNames ~= #controllerNames - #controllersWithoutInitializing then
-		warn("Unitialized controllers:")
+		warn("Uninitialized controllers:")
 
 		for _, controllerName in pairs(controllerNames) do
 			if (not table.find(initializedControllerNames, controllerName)) and (not table.find(controllersWithoutInitializing, controllerName)) then
@@ -105,7 +105,7 @@ function ClientCore:Start()
 				local success, value = pcall(controller.AfterPlayerLoaded, controller, Player)
 
 				if not success then
-					warn("Error occured while calling 'AfterPlayerLoaded' function for controller " .. name ..":",  value)
+					warn("Error occurred while calling 'AfterPlayerLoaded' function for controller " .. name ..":",  value)
 				end
 			end
 		end)

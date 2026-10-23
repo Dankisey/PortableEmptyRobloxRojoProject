@@ -1,13 +1,6 @@
---[[
-	Общие проверки персонажа. Раньше это было написано заново в восьми местах —
-	трижды отдельной функцией и пять раз инлайном.
-]]
 local CharacterUtils = {}
 
---[[
-	Живой персонаж игрока. Нет персонажа, нет рутпарта или здоровье на нуле —
-	возвращаем nil, чтобы вызывающий гасился однострочным гвардом.
-]]
+-- nil when there is no character, no root part or no health, so the caller needs a one-line guard
 function CharacterUtils.GetAlive(player: Player): (Model?, BasePart?, Humanoid?)
 	local character = player.Character
 
@@ -27,10 +20,7 @@ function CharacterUtils.GetAliveRoot(player: Player): BasePart?
 	return root
 end
 
---[[
-	Опорная часть тела для рэгдолла и вихря. Цепочка идёт от R15 к R6
-	и заканчивается рутпартом: он есть всегда.
-]]
+-- R15, then R6, then the root part, which always exists
 function CharacterUtils.GetTorso(character: Model): BasePart?
 	return character:FindFirstChild("UpperTorso")
 		or character:FindFirstChild("Torso")

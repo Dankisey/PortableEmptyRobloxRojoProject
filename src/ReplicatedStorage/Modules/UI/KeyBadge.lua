@@ -1,23 +1,9 @@
---[[
-	Подпись клавиши на кнопке — маленький кружок в её углу.
-
-	Живёт отдельно, потому что подписывать надо разные кнопки в разных модулях,
-	а правило на всех одно.
-
-	Структура бейджа в StarterGui: Frame "KeyBadge" с детьми "KeyLabel" (TextLabel)
-	и "KeyIcon" (ImageLabel). Кнопку с таким бейджем заводит игра — в каркасе
-	вызовов нет ни одного, и это не забытый код, а готовый инструмент.
-]]
-
 local UserInputService = game:GetService("UserInputService")
 
+--[[ badge layout: Frame "KeyBadge" with "KeyLabel" (TextLabel) and "KeyIcon" (ImageLabel) ]]
 local KeyBadge = {}
 
---[[
-	На геймпаде рисуем глиф самой консоли: подписи кнопок у Xbox и PlayStation
-	разные, и угадывать их текстом нельзя. Глиф приходит не для всех устройств —
-	тогда остаётся текст из конфига.
-]]
+--[[ the console glyph, because Xbox and PlayStation label buttons differently; falls back to config text when missing ]]
 local function getGamepadImage(keyCode: EnumItem?): string?
 	if not keyCode then return nil end
 
@@ -28,22 +14,18 @@ local function getGamepadImage(keyCode: EnumItem?): string?
 	return success and result or nil
 end
 
---[[ по PreferredInput, а не по типу устройства: на ПК с воткнутым геймпадом игрок может играть и тем, и другим ]]
+--[[ by PreferredInput, not the device: a PC with a plugged in gamepad can play with either ]]
 local function getControlType(): string
 	local preferred = UserInputService.PreferredInput
 
 	if preferred == Enum.PreferredInput.Touch then return "Mobile" end
+
 	if preferred == Enum.PreferredInput.Gamepad or preferred == Enum.PreferredInput.MicroGamepad then return "Console" end
 
 	return "Desktop"
 end
 
---[[
-	Привести бейдж в соответствие с текущим вводом.
-
-	hint — секция ControlsConfig вида {GamepadKeyCode, Labels = {Desktop, Console, Mobile}}.
-	Пустая подпись значит "бейджа нет": так он пропадает на мобилке.
-]]
+-- hint is a ControlsConfig section {GamepadKeyCode, Labels = {Desktop, Console, Mobile}}; an empty label hides the badge
 function KeyBadge.Apply(badge: Frame?, hint: {[string]: any})
 	if not badge then return end
 
@@ -74,7 +56,7 @@ function KeyBadge.Apply(badge: Frame?, hint: {[string]: any})
 	badge.Visible = true
 end
 
---[[ Apply сейчас и на каждой смене PreferredInput; соединение отключает владелец кнопки ]]
+-- the button owner disconnects the returned connection
 function KeyBadge.Bind(badge: Frame?, hint: {[string]: any}): RBXScriptConnection
 	KeyBadge.Apply(badge, hint)
 

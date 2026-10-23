@@ -1,8 +1,8 @@
-# Как проверять сделанное
+# How to check the work
 
-## Синтаксис всего плейса без Play
+## Syntax of the whole place without Play
 
-`loadstring` в Edit только компилирует. Норма плейса-шаблона: **93 скрипта, 0 ошибок** — сверка, а не константа: в игре число растёт с каждым модулем. Текст — из документа редактора: `.Source` правленых скриптов отстаёт, а у записанных `UpdateSourceAsync` пуст и компилируется в ложный ноль ([грабля](roblox-studio.md#source-пуст-или-отстаёт--проверки-читают-geteditorsource)). То же для сверки типов и контрольных сумм.
+`loadstring` in Edit only compiles. The template norm: **96 scripts, 0 errors** — a reference, not a constant: in a game the number grows with every module. Text comes from the editor document: `.Source` of edited scripts lags, and for scripts written by `UpdateSourceAsync` it is empty and compiles into a false zero ([pitfall](roblox-studio.md#source-is-empty-or-stale--checks-read-geteditorsource)). The same applies to type checks and checksums.
 
 ```lua
 local ScriptEditorService = game:GetService("ScriptEditorService")
@@ -12,37 +12,41 @@ local roots = {
 	game:GetService("StarterGui"), game:GetService("ReplicatedFirst"),
 	game:GetService("Workspace"),
 }
-local failures, total = {}, 0
+local failures, missing, total = {}, {}, 0
 
 for _, root in roots do
 	for _, d in root:GetDescendants() do
 		if not d:IsA("LuaSourceContainer") then continue end
 		total += 1
-		local chunk, err = loadstring(ScriptEditorService:GetEditorSource(d), d.Name)
+		local source = ScriptEditorService:GetEditorSource(d)
+		local chunk, err = loadstring(source, d.Name)
 		if not chunk then table.insert(failures, d:GetFullName() .. ": " .. tostring(err)) end
+		for name in source:gmatch("require%(script%.Parent%.([%w_]+)%)") do
+			if not d.Parent:FindFirstChild(name) then table.insert(missing, d.Name .. " -> " .. name) end
+		end
 	end
 end
 
-return ("Скриптов: %d | Ошибок: %d\n%s"):format(total, #failures, table.concat(failures, "\n"))
+return ("Scripts: %d | Errors: %d | Dangling require: %d\n%s\n%s"):format(total, #failures, #missing, table.concat(failures, "\n"), table.concat(missing, ", "))
 ```
 
-Бэкапы `ServerStorage.RemovedBackup_*` компилируются, но не исполняются — вычитай их из нормы.
+Backups like `ServerStorage.RemovedBackup_*` compile but do not run — subtract them from the norm.
 
-**Чего `loadstring` не ловит:**
-- битые `require` — путь разрешается в рантайме; разбери `require(...)` текстом и разреши через `FindFirstChild`;
-- висячие поля после удаления (ниже);
-- продублированный `export type`;
-- пропущенный `..`: `name "text"` — это вызов `name("text")`, падает только при исполнении. Ищи идентификатор, за которым сразу идёт строковый литерал.
+**What `loadstring` does not catch:**
+- broken `require` with other paths (`script.Parent.Parent.X`, `ReplicatedStorage.Modules...`) — the path resolves at runtime; parse `require(...)` as text and resolve through `FindFirstChild`;
+- dangling fields after removal (below);
+- a duplicated `export type`;
+- a missing `..`: `name "text"` is the call `name("text")` and fails only when run. Search for an identifier followed directly by a string literal.
 
-## Висячие ссылки после удаления и переименования
+## Dangling references after removal and rename
 
-Тем же обходом ищи имена, которые должны были исчезнуть. Подстрока даёт ложные срабатывания (`getDebrisFolder` содержит `DebrisFolder`) — ищи с границей слова: `source:gsub("[^%w_]Name", "")`. Полезно и обратное: собрать все `ConfigName%.(%w+)` и сверить с реальным набором полей.
+Use the same loop to search for names that had to disappear. A substring gives false hits (`getDebrisFolder` contains `DebrisFolder`) — search with a word boundary: `source:gsub("[^%w_]Name", "")`. The reverse is useful too: collect every `ConfigName%.(%w+)` and compare with the real field set.
 
-Новый необязательный аргумент старой функции компилируется везде и молча даёт число для дефолтного режима. До правки сигнатуры найди всех вызывающих; данные, которых у клиента нет, считай на сервере и клади в `GameValues`.
+A new optional argument of an old function compiles everywhere and silently gives a number for the default mode. Before changing a signature, find every caller; data the client does not have is computed on the server and put into `GameValues`.
 
-## Типы против кода
+## Types against code
 
-Сверяет таблицы `Services` / `Controllers` / `Utils` с реальным составом ядер — после любого добавления или удаления модуля.
+Compares the `Services` / `Controllers` / `Utils` tables with the real core composition — after any module is added or removed.
 
 ```lua
 local function listedIn(source: string, tableName: string): {string}
@@ -56,17 +60,17 @@ local function listedIn(source: string, tableName: string): {string}
 end
 ```
 
-## GUI против модулей
+## GUI against modules
 
-`GuiTemplate:CreateChildren` требует одноимённый фрейм для каждого дочернего модуля и молча прерывает создание остальных. Проверяй обе стороны: каждому модулю `GuiController` — свой `ScreenGui`, каждому вложенному модулю — фрейм в нём.
+`GuiTemplate:CreateChildren` needs a frame with the same name for every child module and silently stops creating the rest. Check both sides: every `GuiController` module has its `ScreenGui`, every nested module has a frame in it. Removing a frame — remove the module too.
 
-## Консоль
+## Console
 
-`get_console_output` после каждого шага. `Module X was not loaded` и `Unitialized controllers` ловят почти все поломки фреймворка. На чистом старте консоль пустая — любая строка настоящая.
+`get_console_output` after every step. `Module X was not loaded` and `Uninitialized controllers` catch almost every framework failure. On a clean start the console is empty — every line is real. At the end search for probe leftovers: there must be none.
 
-## Числа конфигов для расчёта
+## Config numbers for calculations
 
-Грузи свежим Source, не `require`:
+Load fresh Source, not `require`:
 
 ```lua
 local Configs = game:GetService("ReplicatedStorage").Configs
@@ -74,22 +78,32 @@ local function load(name) return loadstring(Configs[name].Source, name)() end
 local SavesConfig = load("SavesConfig")
 ```
 
-Числа баланса в документации протухают на первой правке — перед расчётом замеряй кривую скриптом по текущему коду. Во взвешенных списках сверяй длину с исходной: вес, ушедший в ноль, молча выбрасывает запись через гвард `weight > 0`.
+Balance numbers in docs go stale on the first edit — before a calculation, measure the curve with a script over the current code. In weighted lists compare the length with the original: a weight that went to zero silently drops an entry through a `weight > 0` guard.
 
-## Тестовые значения конфигов
+## Test config values
 
-Ускорять тайминги — правкой файла конфига **до** Play: загруженный модуль в рантайме не изменить. Возвращай боевые значения и сверяй возврат чтением `.Source`. В отчёте — «обычно → для теста».
+Speed up timings by editing the config file **before** Play: a loaded module cannot be changed at runtime. Restore the normal values and verify the restore by reading Source. In the report — "normal → test".
 
-## Проба-скрипт даёт живой синглтон
+## Trajectory in Play instead of a snapshot
 
-`LocalScript` в `PlayerGui` во время Play исполняется в той же VM, что `ClientCore`, а `Script` в `ServerScriptService` — в той же, что `ServerCore`: `require` возвращает играющий экземпляр с его реестрами. Ответ проба пишет в `StringValue`, вызывающий ждёт его и удаляет пробу.
+Movement is checked by a log: a client `execute_luau` starts a `task.spawn` loop that writes position and state into a `StringValue` every fraction of a second, one call plays the input scenario, the next reads and deletes the log. One snapshot shows a moment, not the behavior.
 
-Нужна там, где задержка MCP в секунды не различает «нажал» и «отпустил», и там, где число живёт только в синглтоне. Ответ клиентской пробы в `StringValue` до сервера не доходит (клиентская запись не реплицируется): читай его `execute_luau` с `datamodel_type = "Client"`. Условия: после респавна `LocalScript` в `PlayerGui` удаляется — ставь заново; проба проверяет, что предмет действительно в руках; длинные скобки — [на уровень глубже](roblox-studio.md#длинные-строки-и-пробы).
+## A probe script gives the live singleton
 
-**Телепорт перед ударом опережает сервер**: клиентская проба ставила персонажа у объекта и била через 0,1 с — сервер ещё видел его у прошлого объекта в 25 студах, удар не засчитал, а клиент сыграл эффект. Физикой персонажа владеет клиент, а прыжок на 16 студов сервер ещё ~0,2 с показывает на полпути (интерполяция). Между телепортом и ударом — не меньше 0,3 с; сценарий «подошёл к объекту» проверяй ходьбой `Humanoid:MoveTo`, а не телепортом.
+A `LocalScript` in `PlayerGui` during Play runs in the same VM as `ClientCore`, and a `Script` in `ServerScriptService` in the same one as `ServerCore`: `require` returns the playing instance with its registries. The probe writes its answer into a `StringValue`, the caller waits for it and deletes the probe.
 
-## Численные метрики врут
+It is needed where the seconds of MCP latency cannot tell "pressed" from "released", and where a number lives only in a singleton. A client probe answer in a `StringValue` does not reach the server (client writes do not replicate): read it with `execute_luau` and `datamodel_type = "Client"`. Conditions: after a respawn a `LocalScript` in `PlayerGui` is removed — put it back; the probe checks that the item is really in hand; long brackets — [one level deeper](roblox-studio.md#long-strings-and-probes).
 
-Рэгдолл «включался» по всем метрикам, а рутпарт летел отдельно от тела. Согласованность чисел между собой ничего не доказывает, если все меряются от одной точки отсчёта (луч от собственного пивота сдвигал все замеры на одну величину) — проверяй саму точку отсчёта. Физику, анимации, тайминги, читаемость VFX и UI отдавай человеку с чеклистом и сниппетом.
+**A probe that called `RequestSave` is not deleted right away**: the debounced ProfileStore write runs in the probe script's context, and a deleted probe fails it with `Transform function error Script that implemented this callback has been destroyed while calling callback`. This is an artifact of the probe, not the code: the next autosave writes normally. Keep such a probe alive longer than `SaveInterval`, or read the error this way.
 
-Проверка сеткой по карте, а не парой точек: на реальной карте ветка «луч вернул `nil`» срабатывает постоянно, а на `Baseplate` — никогда.
+**A teleport before a hit runs ahead of the server**: a client probe put the character next to an object and hit a moment later — the server still saw it at the previous object far away, did not count the hit, and the client played the effect. The client owns character physics, and the server shows a long jump half way for a while (interpolation). Keep a pause between a teleport and an action; check "walked up to the object" with `Humanoid:MoveTo`, not a teleport.
+
+## Numeric metrics lie
+
+Ragdoll was "on" by every metric, while the root part flew separately from the body. Agreement between numbers proves nothing if all are measured from one reference point (a ray from the model's own pivot shifted all measurements by one value) — check the reference point itself. Physics, animations, timings, VFX and UI readability go to a human with a checklist and a snippet.
+
+Check with a grid over the map, not a pair of points: on a real map the "the ray returned `nil`" branch fires constantly, on `Baseplate` — never.
+
+## Measure performance on a phone, frame by frame
+
+A freeze measured on a PC was several times shorter than on a phone; scripts on a phone run several times slower. A PC measurement does not decide anything. What works: `os.clock` around each operation, `Heartbeat` timestamps and a print for a second after the event, one line per frame "frame length | our operations | `Stats.PhysicsStepTimeMs`"; the tester sends a console screenshot (`/console`). `Stats.RenderCPUFrameTime` / `RenderGPUFrameTime` return 0 to scripts — rendering is visible only as "frame minus our work".

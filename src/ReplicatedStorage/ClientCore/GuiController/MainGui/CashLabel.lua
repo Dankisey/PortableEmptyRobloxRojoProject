@@ -4,11 +4,11 @@ local ControllerTemplate = require(ReplicatedStorage.Modules.ControllerTemplate)
 
 local CashLabel = {} :: ControllerTemplate.Type
 
---[[ заглушка, а не ноль: пока сейв не прочитан, «$ 0» игрок прочтёт как потерянный прогресс ]]
+--[[ a placeholder, not zero: before the save is read, "$ 0" reads as lost progress ]]
 local CashPlaceholder = "$ ..."
-local CashAttribute = "Cash" -- валюта SoftCurrencyService
+local CashAttribute = "Cash"
 
---[[ атрибут может доехать позже IsLoaded: порядок репликации не гарантирован, поэтому слушаем, а не ждём ]]
+--[[ the attribute may replicate after IsLoaded, so it is listened to, not waited for ]]
 function CashLabel:AfterPlayerLoaded(player: Player)
 	local function render()
 		local value = player:GetAttribute(CashAttribute)
@@ -22,6 +22,7 @@ end
 
 function CashLabel.new(frame: TextLabel)
 	local self = setmetatable(CashLabel, {__index = ControllerTemplate})
+
 	self._frame = frame
 	self._frame.Text = CashPlaceholder
 

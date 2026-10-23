@@ -1,13 +1,6 @@
 local HttpService = game:GetService("HttpService")
 
---[[
-	blacklist — МНОЖЕСТВО вида {[guid] = true}, а не массив.
-
-	Раньше это был массив с table.find, то есть линейный проход по всем выданным
-	за сессию GUID на каждую новую выдачу: реестр может расти весь ран,
-	и стоимость шла в квадрате. Проверка ни за что: восемь hex-символов дают
-	порядка четырёх миллиардов вариантов.
-]]
+-- blacklist is a set {[guid] = true}, not an array: a lookup stays constant while the registry grows
 local function GenerateGuid(blacklist: {[string]: any}?)
 	local guid
 

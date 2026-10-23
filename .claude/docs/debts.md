@@ -1,26 +1,14 @@
-# Долги
+# Debts
 
-Только открытое. Закрытый пункт удаляется; причина — в решения, результат — в milestones-done.
+Open items only. A closed item is deleted; its reason goes to decisions, its result to milestones-done. The intentionally empty parts of the template are listed in the [code map](systems/code-map.md#empty-on-purpose), the release checklist is in the [project README](../../README.md#before-release).
 
-## Баги каркаса
+## Check by eye
 
-- **`Monetization` падает в неопубликованном плейсе**: на загрузке модуля зовёт `DataStoreService:GetDataStore("PurchasesHistory")`, и в Studio без PlaceId ядро пишет `You must publish this place to the web to access DataStore` и `Module Monetization was not loaded`. В опубликованном плейсе не воспроизводится. Решение — получать стор лениво или под `pcall`; пока — опубликовать плейс до первого Play.
-- В комментариях части модулей (`ControlsConfig`, `CollisionConfig` и др.) остались ссылки на несуществующий плоский файл граблей; теперь это [pitfalls](../pitfalls/README.md). Править при касании файла.
+Machine checks are done; these need a human in Play.
 
-## Проверить глазами
-
-- Отскок кнопок (`ButtonsInteractionsConnector`) и курсор в третьем лице — в шаблоне не смотрели.
-- `KeyBadge` по `PreferredInput` — вызывающего кода нет: проверка на ПК с геймпадом, когда игра заведёт кнопку.
-- `ConnectHoldButton` вместе со стиком на телефоне: `InputObject` касания в `InputBegan` кнопки и в `UserInputService.InputEnded` — один и тот же (предположение, машинно не проверено).
-
-## Заглушки шаблона
-
-- `ClickSound`, `HoverSound` без айди и молчат (гвард `SoundPlayer`); айди ставится в инстансе, `SoundConfig.Sfx` дублирует справочно.
-- `ToolsConfig.Priority` и `Actions` пусты: ни один тул не берётся в руки, экранной кнопки нет.
-- `GamepassesConfig.Attributes`, `DevProductsConfig`, `DevelopersConfig`, `ConflictingGuisConfig` пусты; `Assets.UI.Popups` — только пример `Cash`.
-- Иконка и название игры в Creator Hub не заданы.
-
-## Проверить перед релизом
-
-- `SavesConfig.DataStoreName` = `PlayersSavesData`, `KickOnLoadFail` = `true`. Появится второй плейс — общий ключ и одинаковый `ProfileStore` в обоих.
-- В день релиза снимается правило «поля сейва без миграций» ([saves-and-monetization](../rules/saves-and-monetization.md)).
+- Button bounce (`ButtonsInteractionsConnector`) and the cursor in third person.
+- A press through the visual children of an empty button reaches the button with mouse, touch and gamepad (`InputSink = None` on the visuals).
+- The admin panel: visible only to a developer, `AddCash` adds, `Reset` asks for a second press then wipes and kicks, `FreePurchases` switches the label, the color and the purchase flow.
+- The restyled confirmation prompt, tooltip, messages and world prompts read well on a phone in landscape.
+- `KeyBadge` by `PreferredInput` has no caller: check on a PC with a gamepad when a game adds a button.
+- `ConnectHoldButton` together with the stick on a phone: the touch `InputObject` in the button's `InputBegan` and in `UserInputService.InputEnded` is assumed to be the same object.

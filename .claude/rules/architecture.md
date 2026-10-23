@@ -2,17 +2,19 @@
 paths: [".claude/docs/systems/README.md", ".claude/docs/systems/framework.md", ".claude/docs/systems/code-map.md", ".claude/docs/systems/public-api.md", ".claude/docs/systems/remotes-and-values.md", ".claude/decisions/framework.md"]
 ---
 
-# Архитектура и DI
+# Architecture and DI
 
-- **Сервер авторитетен.** Клиент шлёт минимум фактов (намерение, ID цели), сервер проверяет дистанцию, кулдаун, время, баланс и принадлежность объекта игроку. Клиент рисует косметику. Исключение — физика персонажа ([character-physics](character-physics.md)).
-- **Клиент играет косметику, сервер ставит объекты.** Если объекты у каждого клиента свои (личная трасса, инстанс-уровень), сервер держит их состояние на игрока таблицей и проверяет присланные Id сам — такой выбор фиксируется решением.
-- **Всё, что играется постоянно, заводится на клиенте.** Серверный `Animator` реплицирует команду, а не состояние трека: поздний игрок её не увидит. Состояние сцены — атрибутом на модели.
-- **DI грузит только прямых детей ядра.** Новый сервис/контроллер — ModuleScript в ядре; одинаковые имена перетирают друг друга; вложенный модуль сервисом не становится. Порядок и контракты — [framework](../docs/systems/framework.md).
-- **Одно состояние — один владелец.** Остальные шлют запрос или подписываются на `Event`. Идентичность — GUID (`utils.GenerateGuid`), реестр на сервере.
-- Порядок обработчиков одного события не задан: флаг, который снимает чужой обработчик того же события, гвардом быть не может.
-- Подписки на элементы UI ставятся один раз в `Initialize`; обработчик ремоута меняет только состояние и `Visible`.
-- На уровне модуля нет `WaitForChild` без таймаута: бесконечный йилд в `require` убивает весь клиент. Папки мира — `WorldQuery.GetWorldFolder`.
-- Новый сервис/контроллер: экспорт типа, `Services`/`Controllers`, строка в [карте кода](../docs/systems/code-map.md), сверка «типы против ядра». Инфраструктура и шаблоны — рядом с `ServiceTemplate`, не в ядре.
-- Большинство игроков на мобилках: число инстансов, частота ремоутов и VFX ограничиваются конфигом; UI проверяется на телефоне.
+- **The server is authoritative.** The client sends minimal facts (intent, target Id), the server checks distance, cooldown, time, balance and that the object belongs to the player. The client draws cosmetics. Exception — character physics ([character-physics](character-physics.md)).
+- **The client plays cosmetics, the server places objects.** If each client has its own objects (a personal track, an instanced level), the server keeps their state per player in a table and checks the sent Ids itself; such a choice is recorded as a decision.
+- **Everything that plays permanently starts on the client.** A server `Animator` replicates the command, not the track state: a late player never sees it. Scene state is an attribute on the model.
+- **DI loads only direct children of a core.** A new service or controller is a ModuleScript in the core; equal names overwrite each other; a nested module never becomes a service. Order and contracts — [framework](../docs/systems/framework.md).
+- **One state, one owner.** Others send a request or subscribe to an `Event`. Identity — a GUID (`utils.GenerateGuid`), the registry lives on the server.
+- A remote carries minimal facts; every new remote checks the sender and the state on the server before any action.
+- The order of handlers of one event is not defined: a flag cleared by another handler of the same event cannot be a guard.
+- UI subscriptions are made once in `Initialize`; a remote handler changes only state and `Visible`.
+- No `WaitForChild` without a timeout at module level: an endless yield in `require` kills the whole client. World folders — `WorldQuery.GetWorldFolder`.
+- A new service or controller: type export, `Services`/`Controllers`, a line in the [code map](../docs/systems/code-map.md), the "types against core" check. Infrastructure and templates live next to `ServiceTemplate`, not in the core.
+- **Developer tools only reach developers.** The admin panel lives in `ServerStorage.AdminGui` and `AdminService` clones it into `PlayerGui` for `DevelopersConfig` only; every command is checked on the server. A new command is an entry in `AdminConfig.Commands`, a button with the same name in the panel layout and a handler in `AdminService` ([decision](../decisions/framework.md#admin-panel-outside-di)).
+- Most players are on phones: instance counts, remote rates and VFX are limited by config; UI is checked on a phone.
 
-Перед правкой прочитай [framework](../docs/systems/framework.md), [карту кода](../docs/systems/code-map.md), [API](../docs/systems/public-api.md), [ремоуты](../docs/systems/remotes-and-values.md) и [runtime](../pitfalls/runtime.md).
+Before an edit read [framework](../docs/systems/framework.md), the [code map](../docs/systems/code-map.md), the [API](../docs/systems/public-api.md), [remotes](../docs/systems/remotes-and-values.md) and [runtime](../pitfalls/runtime.md).

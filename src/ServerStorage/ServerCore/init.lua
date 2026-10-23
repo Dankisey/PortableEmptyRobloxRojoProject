@@ -1,7 +1,8 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
 local ClientInitialized = ReplicatedStorage.Remotes.ClientInitialized
 
---[[ Напрямую по пути: на момент загрузки утилит таблицы utils ещё не существует. ]]
+--[[ required by path: the utils table does not exist yet while utils are loading ]]
 local LoadModules = require(ReplicatedStorage.Modules.Utils.LoadModules)
 
 local ServerCore = {}
@@ -18,6 +19,7 @@ function ServerCore:Start()
 	local configs = LoadModules(ReplicatedStorage.Configs)
 
 	print("Start creating server modules")
+
 	for _, moduleScript in pairs(script:GetChildren()) do
 		local success, module = pcall(require, moduleScript)
 
@@ -29,13 +31,14 @@ function ServerCore:Start()
 
 		if not module.new then
 			warn(moduleScript.Name .. " has no constructor")
-		else	
+		else
 			services[moduleScript.Name] = module.new()
 		end
 	end
-	print("Server modules were created")
 
+	print("Server modules were created")
 	print("Injecting services")
+
 	for _, service in services do
 		if service.InjectServices then
 			service:InjectServices(services)
@@ -43,6 +46,7 @@ function ServerCore:Start()
 	end
 
 	print("Injecting utils")
+
 	for _, service in services do
 		if service.InjectUtils then
 			service:InjectUtils(utils)
@@ -50,18 +54,17 @@ function ServerCore:Start()
 	end
 
 	print("Injecting configs")
+
 	for _, service in services do
 		if service.InjectConfigs then
 			service:InjectConfigs(configs)
 		end
 	end
-	print("Injecting completed")
 
-	--[[
-		Как на клиенте: без pcall упавший Initialize молча терялся внутри task.spawn,
-		и сервис оставался полуживым без единой строки в консоли.
-	]]
+	print("Injecting completed")
 	print("Initializing server modules")
+
+	--[[ without pcall a failed Initialize is lost inside task.spawn and the service stays half alive with no log line ]]
 	for name, service in services do
 		task.spawn(function()
 			if not service.Initialize then return end
@@ -69,15 +72,15 @@ function ServerCore:Start()
 			local success, err = pcall(service.Initialize, service)
 
 			if not success then
-				warn("Error occured while initializing service " .. name .. ":", err)
+				warn("Error occurred while initializing service " .. name .. ":", err)
 			end
 		end)
 	end
+
 	print("Server modules were initialized")
 
 	local totalTime = tick() - startTime
 	print("Server modules takes " .. totalTime .. " to start")
-
 	print("Server setup finished")
 end
 

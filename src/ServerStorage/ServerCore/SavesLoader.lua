@@ -2,7 +2,6 @@ local MarketplaceService = game:GetService("MarketplaceService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
 local PolicyService = game:GetService("PolicyService")
-local TextChatService = game:GetService("TextChatService")
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
 
@@ -14,27 +13,26 @@ local SavesConfig = require(ReplicatedStorage.Configs.SavesConfig)
 
 local SavesLoader = {} :: ServiceTemplate.Type
 
---[[ служебная статистика — собственный раздел загрузчика, на клиент не уходит ]]
 SavesLoader.SaveSection = "Stats"
 
---[[ флаг работает только в Studio: забытый включённым, он не уедет на прод ]]
+--[[ Studio only: a flag left on by mistake must not reach the live game ]]
 local isUsingEmptySave = SavesConfig.UseEmptySave and RunService:IsStudio()
 
 ProfileStore.SetConstant("AUTO_SAVE_PERIOD", SavesConfig.AutoSavePeriod)
 
---[[ схемы здесь нет: раздел и его значения по умолчанию принадлежат сервису-владельцу ]]
+--[[ no schema here: each section and its defaults belong to the owning service ]]
 local Store = ProfileStore.New(SavesConfig.DataStoreName, {})
 
---[[ Mock — отдельный фальшивый стор: из него в DataStore не уезжает ничего ]]
+--[[ Mock is a separate fake store: nothing from it reaches the DataStore ]]
 local SessionStore = if isUsingEmptySave then Store.Mock else Store
 
 local function readNumber(value: any): number?
 	return if type(value) == "number" and value == value then value else nil
 end
 
---[[========================= владельцы разделов =========================]]
+--[[========================= section owners =========================]]
 
---[[ считается каждый раз заново: дёшево и не зависит от порядка Initialize ]]
+--[[ rebuilt on every call: cheap and independent of Initialize order ]]
 local function getSectionOwners(self): {[string]: any}
 	local owners = {}
 
@@ -44,7 +42,7 @@ local function getSectionOwners(self): {[string]: any}
 		if type(section) ~= "string" then continue end
 
 		if type(service.LoadSave) ~= "function" or type(service.GetSave) ~= "function" then
-			warn(("SavesLoader: раздел %s объявлен, но LoadSave/GetSave нет"):format(section))
+			warn(("SavesLoader: section %s is declared without LoadSave/GetSave"):format(section))
 
 			continue
 		end
@@ -55,25 +53,26 @@ local function getSectionOwners(self): {[string]: any}
 	return owners
 end
 
---[[ НЕ ЙИЛДИТ: зовётся из Profile.OnSave прямо перед каждой записью, включая автосейв ]]
+--[[ must not yield: Profile.OnSave calls it right before every write, autosave included ]]
 local function syncToProfile(self, player: Player)
 	local profile = self._profiles[player]
 
 	if not profile or not profile:IsActive() then return end
-	-- после /wipe кэши сервисов ещё полны, а профиль уже пуст: их запись вернула бы стёртое
+
+	--[[ after a wipe the service caches are still full while the profile is empty: writing them back would restore the wiped data ]]
 	if self._wiped[player] then return end
 
 	for section, service in getSectionOwners(self) do
 		local sectionData = service:GetSave(player)
 
-		--[[ nil — «сейв не читался»: запись пустоты стёрла бы прогресс, которого мы не видели ]]
+		--[[ nil means the save was never read: writing it would erase progress this server has not seen ]]
 		if sectionData ~= nil then
 			profile.Data[section] = sectionData
 		end
 	end
 end
 
---[[========================= свой раздел: статистика =========================]]
+--[[========================= own section: stats =========================]]
 
 function SavesLoader:LoadSave(player: Player, data: any)
 	data = type(data) == "table" and data or {}
@@ -84,7 +83,7 @@ function SavesLoader:LoadSave(player: Player, data: any)
 	}
 end
 
---[[ время игры считается от базы на входе, а не приращением: запись идёт много раз за сессию ]]
+--[[ playtime is counted from the join base, not incrementally: the profile is written many times per session ]]
 function SavesLoader:GetSave(player: Player): any
 	local stats = self._stats[player]
 
@@ -103,9 +102,9 @@ function SavesLoader:UnloadSave(player: Player)
 	self._stats[player] = nil
 end
 
---[[========================= вход =========================]]
+--[[========================= join =========================]]
 
---[[ провал политики — не повод кикать: ограничение считаем включённым ]]
+--[[ a failed policy request is no reason to kick: treat the restriction as active ]]
 local function applyAttributes(self, player: Player)
 	local success, policy = pcall(PolicyService.GetPolicyInfoForPlayerAsync, PolicyService, player)
 
@@ -118,16 +117,16 @@ local function applyAttributes(self, player: Player)
 		success, owns = pcall(MarketplaceService.UserOwnsGamePassAsync, MarketplaceService, player.UserId, attributePass.GamepassId)
 
 		if not success then
-			warn("SavesLoader: не удалось проверить геймпасс: " .. tostring(owns))
+			warn("SavesLoader: could not check game pass: " .. tostring(owns))
 		end
 
 		player:SetAttribute(attributePass.AttributeName, success and owns or false)
 	end
 end
 
--- блокирует вызывающий поток: ждёт, пока прошлый сервер отпустит лок сессии
+-- blocks the calling thread: waits until the previous server releases the session lock
 local function startSession(self, player: Player)
-	--[[ без Cancel ушедший во время ожидания игрок держал бы и поток, и ключ ]]
+	--[[ without Cancel a player who left while waiting would keep both the thread and the key ]]
 	local profile = SessionStore:StartSessionAsync(SavesConfig.GetProfileKey(player), {
 		Cancel = function()
 			return player.Parent ~= Players
@@ -138,7 +137,6 @@ local function startSession(self, player: Player)
 
 	profile:AddUserId(player.UserId)
 
-	--[[ сессию угнал другой сервер: писать больше нечем, играть дальше нельзя ]]
 	profile.OnSessionEnd:Connect(function()
 		self._profiles[player] = nil
 
@@ -172,25 +170,24 @@ local function onPlayerAdded(self, player: Player)
 			return player:Kick(SavesConfig.KickMessage)
 		end
 
-		--[[ без сейва атрибутов прогресса нет, и счётчики честно остаются в «...» ]]
-		warn(("SavesLoader: игрок %s играет без сейва"):format(player.Name))
+		warn(("SavesLoader: player %s plays without a save"):format(player.Name))
 		player:SetAttribute("IsLoaded", true)
 
 		return
 	end
 
-	--[[ разделы раздаются строго ДО IsLoaded: клиент читает их в AfterPlayerLoaded ]]
+	--[[ sections are handed out strictly before IsLoaded: the client reads them in AfterPlayerLoaded ]]
 	for section, service in getSectionOwners(self) do
 		service:LoadSave(player, profile.Data[section])
 	end
 
-	--[[ IsLoaded значит «загрузка закончилась», а не «удачно»: без него клиент висел бы на старте ]]
+	--[[ IsLoaded means "loading finished", not "succeeded": without it the client would hang on start ]]
 	player:SetAttribute("IsLoaded", true)
 end
 
---[[========================= выход =========================]]
+--[[========================= leave =========================]]
 
---[[ синк ДО EndSession: после конца сессии правки profile.Data не гарантированы ]]
+--[[ sync before EndSession: profile.Data edits are not guaranteed after the session ends ]]
 local function onPlayerRemoving(self, player: Player)
 	local profile = self._profiles[player]
 	local scheduled = self._saveTasks[player]
@@ -216,9 +213,9 @@ local function onPlayerRemoving(self, player: Player)
 	end
 end
 
---[[========================= запись =========================]]
+--[[========================= write =========================]]
 
--- НЕ ЙИЛДИТ; false значит «сессии нет, писать некуда», а не «запись не удалась»
+-- does not yield; false = no session to write to, not a failed write
 function SavesLoader:Save(player: Player): boolean
 	local profile = self._profiles[player]
 
@@ -230,7 +227,7 @@ function SavesLoader:Save(player: Player): boolean
 	return true
 end
 
---[[ НИКОГДА НЕ ЙИЛДИТ: единственный допустимый вариант внутри обработчика покупки ]]
+--[[ never yields: the only save call allowed inside a purchase handler ]]
 function SavesLoader:RequestSave(player: Player)
 	local profile = self._profiles[player]
 
@@ -238,7 +235,6 @@ function SavesLoader:RequestSave(player: Player)
 
 	syncToProfile(self, player)
 
-	-- запись уже запланирована: она увезёт и это изменение
 	if self._saveTasks[player] then return end
 
 	local lastSave = self._lastSave[player]
@@ -256,7 +252,7 @@ function SavesLoader:IsLoaded(player: Player): boolean
 	return self._profiles[player] ~= nil
 end
 
--- стирает сейв целиком и кикает; false = сессии нет, стирать нечего
+-- false = no session, nothing to wipe
 function SavesLoader:WipeSave(player: Player): boolean
 	local profile = self._profiles[player]
 
@@ -277,24 +273,9 @@ function SavesLoader:WipeSave(player: Player): boolean
 	return true
 end
 
-local function createWipeCommand(self)
-	local command = Instance.new("TextChatCommand")
-	command.Name = "WipeCommand"
-	command.PrimaryAlias = SavesConfig.WipeCommandAlias
-	command.Parent = TextChatService
-
-	command.Triggered:Connect(function(textSource: TextSource)
-		local player = Players:GetPlayerByUserId(textSource.UserId)
-
-		if not player or not self._configs.DevelopersConfig[player.UserId] then return end
-
-		self:WipeSave(player)
-	end)
-end
-
---[[ BindToClose не нужен: ProfileStore ставит свой и сам закрывает все сессии ]]
+--[[ no BindToClose: ProfileStore binds its own and closes every session ]]
 function SavesLoader:Initialize()
-	--[[ Connect ДО обхода: onPlayerAdded йилдит, и вошедший во время обхода иначе не получил бы IsLoaded ]]
+	--[[ connect before the loop: onPlayerAdded yields, and a player joining during the loop would never get IsLoaded ]]
 	Players.PlayerAdded:Connect(function(player: Player)
 		onPlayerAdded(self, player)
 	end)
@@ -310,18 +291,16 @@ function SavesLoader:Initialize()
 	KickRequested.OnServerEvent:Connect(function(player: Player, reason: string)
 		player:Kick(reason)
 	end)
-
-	createWipeCommand(self)
 end
 
 function SavesLoader.new()
 	local self = setmetatable(SavesLoader, {__index = ServiceTemplate})
 
-	self._profiles = {}   -- [Player] = Profile
-	self._lastSave = {}   -- [Player] = os.clock() последней форсированной записи
-	self._saveTasks = {}  -- [Player] = отложенная запись
-	self._stats = {}      -- [Player] = {FirstJoin, TotalPlaytime на момент входа}
-	self._wiped = {}      -- [Player] = true после /wipe: кэши сервисов в профиль больше не пишутся
+	self._profiles = {} -- [Player] = Profile
+	self._lastSave = {} -- [Player] = os.clock() of the last forced write
+	self._saveTasks = {} -- [Player] = scheduled write
+	self._stats = {} -- [Player] = {FirstJoin, TotalPlaytime at join}
+	self._wiped = {} -- [Player] = true after a wipe: service caches are no longer written to the profile
 
 	return self
 end

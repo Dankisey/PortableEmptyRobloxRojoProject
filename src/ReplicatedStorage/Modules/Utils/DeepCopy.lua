@@ -1,7 +1,7 @@
-local function DeepCopy(ititialTable: {any})
+local function DeepCopy(initialTable: {any})
 	local clone = {}
 
-	for key, value in ititialTable do
+	for key, value in initialTable do
 		if type(value) == "table" then
 			clone[key] = DeepCopy(value)
 		else

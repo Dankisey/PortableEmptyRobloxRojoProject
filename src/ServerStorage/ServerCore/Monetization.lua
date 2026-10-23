@@ -1,131 +1,36 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Configs = ReplicatedStorage.Configs
-local DevProductsConfig = require(Configs.DevProductsConfig)
-local GamepassesConfig = require(Configs.GamepassesConfig)
+local MarketplaceService = game:GetService("MarketplaceService")
+local DataStoreService = game:GetService("DataStoreService")
+local Players = game:GetService("Players")
 
 local Remotes = ReplicatedStorage.Remotes.Monetization
 local GamepassRequested = Remotes.GamepassRequested
 local DevProductRequested = Remotes.DevProductRequested
 
-local DataStoreService = game:GetService("DataStoreService")
-local PurchasesHistoryStore = DataStoreService:GetDataStore("PurchasesHistory")
-
-local MarketplaceService = game:GetService("MarketplaceService")
-local RunService = game:GetService("RunService")
-local Players = game:GetService("Players")
-
 local ServiceTemplate = require(script.Parent.Parent.ServiceTemplate)
 
 local Monetization = {} :: ServiceTemplate.Type
 
---[[
-	Реестры обработчиков покупок. Заполняются СНАРУЖИ, через RegisterProduct:
-	владелец товара — тот сервис, который его выдаёт, а не этот модуль.
+local DeveloperPurchasesAttribute = "DeveloperPurchasesEnabled"
+local PurchasesHistoryStoreName = "PurchasesHistory"
 
-	До этого таблицы были локальными и никто в них не писал вовсе — то есть
-	монетизация была неработоспособна целиком: любая покупка получала
-	NotProcessedYet и висла в очереди до появления обработчика.
-]]
+--[[ filled from outside through RegisterProduct: the service that grants an item owns its handler ]]
 local productFunctions = {}
 local gamepassFunctions = {}
 
---[[
-	Привязать обработчик к дев-продукту. Зовётся из Initialize владеющего сервиса.
+local purchasesHistoryStore = nil
 
-	handler получает (monetization, player, receiptInfo) и ОБЯЗАН вернуть true при
-	успешной выдаче: любое другое значение трактуется как провал, и покупка
-	останется в очереди вместо того, чтобы сгореть.
-
-	HANDLER НЕ ИМЕЕТ ПРАВА ЙИЛДИТЬ. Он вызывается внутри трансформ-функции
-	UpdateAsync ниже, а трансформ-колбэк DataStore не может йилдить вовсе:
-	ни task.wait, ни WaitForChild, ни второго запроса к DataStore. Иначе —
-	«Transform function error Callbacks cannot yield», и товар не выдаётся,
-	а очередь запросов забивается.
-
-	Требование это ничего не усложняет, потому что выдавать надо ровно в кэш:
-	handler меняет папки игрока (и кэши сервисов-владельцев разделов сейва)
-	и на этом заканчивается. На диск сейв уезжает один раз, на выходе игрока —
-	SavesLoader другой записи не предоставляет вовсе.
-
-	Цена известна и принята: падение сервера между покупкой и выходом теряет
-	товар, а повторно выдать его нельзя — чек уже помечен выданным.
-
-	Повторная регистрация одного ProductId — всегда ошибка в конфигах (один и тот
-	же идентификатор у двух товаров), и молча перетирать первый обработчик нельзя.
-]]
-function Monetization:RegisterProduct(productId: number, handler: (any, Player, any) -> boolean)
-	if type(productId) ~= "number" or type(handler) ~= "function" then
-		warn(("Monetization: негодная регистрация продукта (%s, %s)")
-			:format(tostring(productId), type(handler)))
-
-		return
+--[[ lazy: GetDataStore on module load fails in an unpublished place and the whole module is lost ]]
+local function getPurchasesHistoryStore(): DataStore
+	if not purchasesHistoryStore then
+		purchasesHistoryStore = DataStoreService:GetDataStore(PurchasesHistoryStoreName)
 	end
 
-	if productFunctions[productId] then
-		warn(("Monetization: обработчик для ProductId %d уже зарегистрирован"):format(productId))
-
-		return
-	end
-
-	productFunctions[productId] = handler
+	return purchasesHistoryStore
 end
 
-function Monetization:ProcessReciept(receiptInfo)
-	local playerProductKey = receiptInfo.PlayerId .. "_" .. receiptInfo.PurchaseId
-	local success, result, errorMessage
-	local isPurchased = false
-
-	success, errorMessage = pcall(function()
-		isPurchased = PurchasesHistoryStore:GetAsync(playerProductKey)
-	end)
-
-	if success and isPurchased then
-		return Enum.ProductPurchaseDecision.PurchaseGranted
-	elseif not success then
-		error("Data store error:" .. errorMessage)
-	end
-
-	success, result = pcall(function()
-		return PurchasesHistoryStore:UpdateAsync(playerProductKey, function(isAlreadyPurchased)
-			if isAlreadyPurchased then return true end
-
-			local player = Players:GetPlayerByUserId(receiptInfo.PlayerId)
-
-			if not player then return nil end
-
-			local rewardFunction = productFunctions[receiptInfo.ProductId]
-
-			--[[
-				Обработчика нет — выдавать нечего. Возвращаем nil (NotProcessedYet):
-				покупка останется в очереди и выдастся, когда обработчик появится,
-				а не сгорит. Без проверки pcall просто падал на nil и давал ту же
-				очередь, но без единой строки о причине.
-			]]
-			if type(rewardFunction) ~= "function" then
-				warn("Monetization: нет обработчика для ProductId " .. tostring(receiptInfo.ProductId))
-
-				return nil
-			end
-
-			local success2, result2 = pcall(rewardFunction, self, player, receiptInfo)
-
-			if not success2 or not result2 then
-				error("Failed to process a product purchase for ProductId: " .. tostring(receiptInfo.ProductId) .. " Player: " .. tostring(player) .. " Error: " .. tostring(result2))
-
-				return nil
-			end
-
-			return true
-		end)
-	end)
-
-	if not success then
-		return Enum.ProductPurchaseDecision.NotProcessedYet
-	elseif result == nil then
-		return Enum.ProductPurchaseDecision.NotProcessedYet
-	else
-		return Enum.ProductPurchaseDecision.PurchaseGranted
-	end
+local function isDeveloperPurchase(self, player: Player): boolean
+	return script:GetAttribute(DeveloperPurchasesAttribute) == true and self._configs.DevelopersConfig[player.UserId] == true
 end
 
 local function onGamepassPurchaseCompleted(self, player: Player, gamePassId: number)
@@ -138,17 +43,93 @@ local function onGamepassPurchaseCompleted(self, player: Player, gamePassId: num
 	gamepassFunctions[gamePassId](self, player, gamePassId)
 end
 
+--[[ the handler runs inside an UpdateAsync transform: it must not yield and must return true, or the receipt stays queued ]]
+function Monetization:RegisterProduct(productId: number, handler: (any, Player, any) -> boolean)
+	if type(productId) ~= "number" or type(handler) ~= "function" then
+		warn(("Monetization: invalid product registration (%s, %s)"):format(tostring(productId), type(handler)))
+
+		return
+	end
+
+	if productFunctions[productId] then
+		warn(("Monetization: a handler for ProductId %d is already registered"):format(productId))
+
+		return
+	end
+
+	productFunctions[productId] = handler
+end
+
+--[[ the handler runs after PromptGamePassPurchaseFinished and on free developer purchases; ownership on join is read by the pass owner itself ]]
+function Monetization:RegisterPass(passId: number, handler: (any, Player, number) -> ())
+	if type(passId) ~= "number" or type(handler) ~= "function" then
+		warn(("Monetization: invalid pass registration (%s, %s)"):format(tostring(passId), type(handler)))
+
+		return
+	end
+
+	if gamepassFunctions[passId] then
+		warn(("Monetization: a handler for pass %d is already registered"):format(passId))
+
+		return
+	end
+
+	gamepassFunctions[passId] = handler
+end
+
+-- blocks the calling thread: reads and writes the purchases history DataStore
+function Monetization:ProcessReceipt(receiptInfo)
+	local store = getPurchasesHistoryStore()
+	local playerProductKey = receiptInfo.PlayerId .. "_" .. receiptInfo.PurchaseId
+	local success, result, errorMessage
+	local isPurchased = false
+
+	success, errorMessage = pcall(function()
+		isPurchased = store:GetAsync(playerProductKey)
+	end)
+
+	if success and isPurchased then
+		return Enum.ProductPurchaseDecision.PurchaseGranted
+	elseif not success then
+		error("Data store error:" .. errorMessage)
+	end
+
+	success, result = pcall(function()
+		return store:UpdateAsync(playerProductKey, function(isAlreadyPurchased)
+			if isAlreadyPurchased then return true end
+
+			local player = Players:GetPlayerByUserId(receiptInfo.PlayerId)
+
+			if not player then return nil end
+
+			local rewardFunction = productFunctions[receiptInfo.ProductId]
+
+			--[[ nil keeps the receipt queued until a handler exists instead of burning the purchase ]]
+			if type(rewardFunction) ~= "function" then
+				warn("Monetization: no handler for ProductId " .. tostring(receiptInfo.ProductId))
+
+				return nil
+			end
+
+			local isGranted, grantError = pcall(rewardFunction, self, player, receiptInfo)
+
+			if not isGranted or not grantError then
+				error("Failed to process a product purchase for ProductId: " .. tostring(receiptInfo.ProductId) .. " Player: " .. tostring(player) .. " Error: " .. tostring(grantError))
+			end
+
+			return true
+		end)
+	end)
+
+	if not success or result == nil then
+		return Enum.ProductPurchaseDecision.NotProcessedYet
+	end
+
+	return Enum.ProductPurchaseDecision.PurchaseGranted
+end
+
 function Monetization:PromptProduct(player: Player, productId: number)
-	local canPurchaseRandomItems = player:GetAttribute("CanPurchaseRandomItems")
-
-	local isDeveloper = self._configs.DevelopersConfig[player.UserId] and RunService:IsStudio() == false
-
-	--[[
-		Девелоперская выдача возможна, только если обработчик продукта вообще есть.
-		Иначе это была индексация nil прямо в обработчике ремоута: падал весь вызов,
-		и обычный промпт покупки тоже не показывался.
-	]]
-	if isDeveloper and type(productFunctions[productId]) == "function" then
+	if isDeveloperPurchase(self, player) and type(productFunctions[productId]) == "function" then
 		self._services.ServerMessagesSender:SendMessageToPlayer(player, "Default", "Developer purchase activated")
 		productFunctions[productId](self, player, {ProductId = productId})
 
@@ -159,10 +140,7 @@ function Monetization:PromptProduct(player: Player, productId: number)
 end
 
 function Monetization:PromptPass(player: Player, passId: number)
-	local isDeveloper = self._configs.DevelopersConfig[player.UserId] and RunService:IsStudio() == false
-
-	--[[ Как в PromptProduct: без обработчика это была индексация nil. ]]
-	if isDeveloper and type(gamepassFunctions[passId]) == "function" then
+	if isDeveloperPurchase(self, player) and type(gamepassFunctions[passId]) == "function" then
 		self._services.ServerMessagesSender:SendMessageToPlayer(player, "Default", "Developer purchase activated")
 		gamepassFunctions[passId](self, player, passId)
 
@@ -172,17 +150,24 @@ function Monetization:PromptPass(player: Player, passId: number)
 	MarketplaceService:PromptGamePassPurchase(player, passId)
 end
 
-function Monetization:Initialize()
-	--[[
-		Возврат обязателен: nil Roblox трактует как NotProcessedYet, и покупка
-		навсегда остаётся в очереди — игрока списали, товар не выдали,
-		а ProcessReceipt зовётся заново при каждом его заходе на сервер.
-	]]
-	local function processReceipt(receiptInfo)
-		return self:ProcessReciept(receiptInfo)
-	end
+function Monetization:AreDeveloperPurchasesEnabled(): boolean
+	return script:GetAttribute(DeveloperPurchasesAttribute) == true
+end
 
-	MarketplaceService.ProcessReceipt = processReceipt
+--[[ server wide: every developer on this server buys for free while it is on ]]
+function Monetization:SetDeveloperPurchasesEnabled(isEnabled: boolean)
+	script:SetAttribute(DeveloperPurchasesAttribute, isEnabled == true)
+end
+
+function Monetization:GetDeveloperPurchasesChangedSignal(): RBXScriptSignal
+	return script:GetAttributeChangedSignal(DeveloperPurchasesAttribute)
+end
+
+function Monetization:Initialize()
+	--[[ a nil return reads as NotProcessedYet: Robux are charged, nothing is granted, and the receipt repeats on every join ]]
+	MarketplaceService.ProcessReceipt = function(receiptInfo)
+		return self:ProcessReceipt(receiptInfo)
+	end
 
 	MarketplaceService.PromptGamePassPurchaseFinished:Connect(function(player: Player, gamePassId: number, wasPurchased: boolean)
 		if not wasPurchased then return end
@@ -200,9 +185,7 @@ function Monetization:Initialize()
 end
 
 function Monetization.new()
-	local self = setmetatable(Monetization, {__index = ServiceTemplate})
-
-	return self
+	return setmetatable(Monetization, {__index = ServiceTemplate})
 end
 
 return Monetization

@@ -1,13 +1,6 @@
 local TweenService = game:GetService("TweenService")
 
---[[
-	Твин модели целиком. Сам PivotTo твинить нельзя, поэтому крутим CFrameValue
-	и переносим его значение на модель на каждом изменении.
-
-	Возвращает уже запущенный Tween: вызывающий сам решает, ждать его
-	через Completed:Wait() или просто держать ссылку, чтобы потом отменить.
-	После завершения или отмены временный CFrameValue убирается сам.
-]]
+-- returns a playing Tween; PivotTo cannot be tweened, so a temporary CFrameValue drives the model
 local function TweenPivot(
 	model: Model | BasePart,
 	targetCFrame: CFrame,
@@ -34,7 +27,7 @@ local function TweenPivot(
 		end
 	end)
 
-	--[[ Cancel() тоже вызывает Completed, так что уборка не теряется. ]]
+	--[[ Cancel also fires Completed, so the cleanup is never lost ]]
 	tween.Completed:Once(function()
 		connection:Disconnect()
 		value:Destroy()

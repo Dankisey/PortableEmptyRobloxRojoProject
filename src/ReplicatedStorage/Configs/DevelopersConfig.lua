@@ -1,6 +1,6 @@
---[[ разработчики и тестеры по UserId: dev-покупки бесплатно вне Studio (Monetization) и команда /wipe (SavesLoader) ]]
+--[[ developers and testers by UserId: admin panel and free developer purchases ]]
 local DevelopersConfig = {
-	-- [UserId] = true; -- имя аккаунта
+	-- [UserId] = true; -- account name
 }
 
 return DevelopersConfig

@@ -66,15 +66,7 @@ function GuiTemplate:CreateChildren(guiName, modules)
 	self.Name = guiName
 	self._frames = {}
 
-	--[[
-		Таймаут обязателен. Без него отсутствующий ScreenGui вешал не один модуль,
-		а конструктор всего ClientCore: GUI-модули создаются синхронно внутри
-		GuiController.new(). Заодно оживает проверка ниже — без таймаута
-		WaitForChild не возвращает nil никогда, и это был мёртвый код.
-
-		Поля Name и _frames заводятся ДО ожидания: при неудаче Initialize и
-		инъекции всё равно обойдут пустой список, а не упадут на nil.
-	]]
+	--[[ the timeout is required: modules are created synchronously inside GuiController.new, and a missing ScreenGui would hang all of ClientCore ]]
 	local gui = Player.PlayerGui:WaitForChild(guiName, 10)
 
 	if not gui then

@@ -2,17 +2,19 @@
 paths: [".claude/docs/systems/saves.md", ".claude/decisions/saves.md", ".claude/pitfalls/saves-and-purchases.md"]
 ---
 
-# Сейв и монетизация
+# Saves and monetization
 
-- **Игра не выпущена, живых сейвов нет.** До релиза поля можно переименовывать и удалять без миграций; в день релиза правило снимается, и каждая смена схемы требует миграции.
-- Каждое сохраняемое поле — в разделе сервиса-владельца по соглашению `SaveSection` + `LoadSave` + `GetSave` ([saves](../docs/systems/saves.md)); папок `PlayerData` нет. Нужное клиенту владелец публикует атрибутом игрока и обновляет при каждом изменении; источник правды — кэш сервиса. `SavesLoader` для нового раздела не правится.
-- `LoadSave` валидирует каждое поле (тип, конечность, знак) и подставляет значение по умолчанию: в сейве бывает мусор, а у нового игрока `data = nil`.
-- `GetSave` неразрушающий и зовётся перед каждой записью; `nil` — «не читался». Разделы не зависят друг от друга.
-- Производное не сохраняется, если выводится из сохранённого (уровень из накопленного значения): иначе два источника разъедутся.
-- Про ProfileStore знает только `SavesLoader`. `BindToClose` не заводить. Гвард записи — `profile:IsActive()`, а не флаг «загружен».
-- Обработчик покупки (`Monetization:RegisterProduct`) живёт внутри `UpdateAsync`: не йилдит, не пишет в `DataStore`. Можно звать методы владельцев разделов (`AddCurrency`) и `RequestSave`/`Save`. Отказ без йилда — `false`, чек остаётся в очереди.
-- Начисление валюты и прогресса — только на сервере, за проверенное событие, ровно один раз; повтор того же события ничего не даёт.
-- Монетизация — Game Pass / Developer Product через `Monetization`. Цены в Robux считать с учётом комиссии Roblox и курса DevEx; правила платформы (DevEx, Premium Payouts, paid random items) — проверять в актуальной документации Roblox.
-- Аудитория включает детей: механики и тексты покупок age-appropriate, без давления и вводящих в заблуждение формулировок.
+- **The game is not released, there are no live saves.** Until release, fields can be renamed and removed without migrations; on release day this rule is lifted, and every schema change needs a migration.
+- Every saved field lives in the section of its owning service by the `SaveSection` + `LoadSave` + `GetSave` convention ([saves](../docs/systems/saves.md)); there are no `PlayerData` folders. What the client needs, the owner publishes as a player attribute and updates on every change; the source of truth is the service cache. `SavesLoader` is not edited for a new section.
+- `LoadSave` validates every field (type, finiteness, sign) and substitutes the default: saves contain garbage, and a new player has `data = nil`.
+- `GetSave` is non-destructive and runs before every write; `nil` means "not read". Sections do not depend on each other.
+- A derived value is not saved if it follows from a saved one (a level from an accumulated value): otherwise the two sources drift apart.
+- Only `SavesLoader` knows about ProfileStore. No `BindToClose`. The write guard is `profile:IsActive()`, not a "loaded" flag.
+- A purchase handler (`Monetization:RegisterProduct`) runs inside `UpdateAsync`: it never yields and never writes to `DataStore`. It may call section owners (`AddCurrency`) and `RequestSave`/`Save`. A refusal without yielding is `false`, the receipt stays queued.
+- Currency and progress are granted only on the server, for a verified event, exactly once; repeating the same event gives nothing.
+- Monetization — Game Pass / Developer Product through `Monetization`. Free developer purchases are off by default and switched by the `DeveloperPurchasesEnabled` attribute on the `Monetization` module (the admin panel button); while on, every developer from `DevelopersConfig` on that server gets items without a prompt.
+- A save wipe is the admin panel `Reset` button: `SavesLoader:WipeSave` clears the whole save and kicks. Studio writes to the real `DataStore`, so test the wipe itself with `SavesConfig.UseEmptySave = true`.
+- Robux prices account for the Roblox fee and the DevEx rate; platform rules (DevEx, Premium Payouts, paid random items) are checked in the current Roblox documentation.
+- The audience includes children: purchase mechanics and texts are age-appropriate, without pressure or misleading wording.
 
-Перед правкой прочитай [saves](../docs/systems/saves.md), [решения](../decisions/saves.md) и [грабли](../pitfalls/saves-and-purchases.md).
+Before an edit read [saves](../docs/systems/saves.md), [decisions](../decisions/saves.md) and [pitfalls](../pitfalls/saves-and-purchases.md).

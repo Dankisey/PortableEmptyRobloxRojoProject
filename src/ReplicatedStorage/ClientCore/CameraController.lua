@@ -1,19 +1,3 @@
---[[
-	CameraController — камера и видимость персонажа.
-
-	Режим камеры задаётся СВОЙСТВОМ StarterPlayer.CameraMode, а не кодом:
-	переключать его на ходу незачем, а плейсы с разным режимом — это разные
-	плейсы со своим StarterPlayer.
-
-	Включил LockFirstPerson — включи и CameraConfig.FirstPersonVisibility,
-	иначе штатный контроллер прозрачности погасит вместе с персонажем и тул
-	в его руках (см. секцию "видимость в первом лице"). В третьем лице флаг
-	обязан оставаться выключенным.
-
-	Твины, фиксации и тряска не зовёт никто — они лежат готовым инструментом
-	под катсцены.
-]]
-
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
@@ -21,12 +5,13 @@ local RunService = game:GetService("RunService")
 local ControllerTemplate = require(ReplicatedStorage.Modules.ControllerTemplate)
 local CameraConfig = require(ReplicatedStorage.Configs.CameraConfig)
 
+--[[ the camera mode is the StarterPlayer.CameraMode property; LockFirstPerson also needs CameraConfig.FirstPersonVisibility ]]
 local CameraController = {}
 
---[[ Отдельное имя бинда: PivotCamera ставит свой на тот же приоритет. ]]
+--[[ a separate bind name: PivotCamera binds its own at the same priority ]]
 local FirstPersonBind = "FirstPersonVisibility"
 
-local function createAttachment(root: Part, offset: CFrame) : Attachment
+local function createAttachment(root: Part, offset: CFrame): Attachment
 	local attachment = Instance.new("Attachment") :: Attachment
 	attachment.Name = "CameraAttachment"
 	attachment.Parent = root
@@ -35,7 +20,7 @@ local function createAttachment(root: Part, offset: CFrame) : Attachment
 	return attachment
 end
 
-function CameraController:TweenTo(target: CFrame, time: number, start: CFrame?) : RBXScriptSignal
+function CameraController:TweenTo(target: CFrame, time: number, start: CFrame?): RBXScriptSignal
 	start = start or self._camera:GetPivot()
 	self._camera.CameraType = Enum.CameraType.Scriptable
 	self._camera:PivotTo(start)
@@ -46,7 +31,7 @@ function CameraController:TweenTo(target: CFrame, time: number, start: CFrame?) 
 	return tween.Completed
 end
 
-function CameraController:ShakeWithoutPivoting(humanoid: Humanoid, shakeIntencity: number, duration: number, frequency: number)
+function CameraController:ShakeWithoutPivoting(humanoid: Humanoid, shakeIntensity: number, duration: number, frequency: number)
 	if self._isShaking then return end
 
 	local originalOffset = humanoid.CameraOffset
@@ -56,7 +41,7 @@ function CameraController:ShakeWithoutPivoting(humanoid: Humanoid, shakeIntencit
 	task.spawn(function()
 		while true do
 			local progress = (duration - leftTime) / duration
-			local fadeIntensity = shakeIntencity * (1 - progress)
+			local fadeIntensity = shakeIntensity * (1 - progress)
 
 			if progress >= 1 then
 				self._isShaking = false
@@ -65,9 +50,9 @@ function CameraController:ShakeWithoutPivoting(humanoid: Humanoid, shakeIntencit
 			end
 
 			local offset = Vector3.new(
-				self._random:NextNumber(-shakeIntencity, shakeIntencity) * fadeIntensity,
-				self._random:NextNumber(-shakeIntencity, shakeIntencity) * fadeIntensity,
-				self._random:NextNumber(-shakeIntencity, shakeIntencity) * fadeIntensity
+				self._random:NextNumber(-shakeIntensity, shakeIntensity) * fadeIntensity,
+				self._random:NextNumber(-shakeIntensity, shakeIntensity) * fadeIntensity,
+				self._random:NextNumber(-shakeIntensity, shakeIntensity) * fadeIntensity
 			)
 
 			local tween = TweenService:Create(humanoid, TweenInfo.new(frequency), {CameraOffset = originalOffset + offset})
@@ -120,28 +105,16 @@ function CameraController:ResetCamera()
 	self._camera.CameraType = Enum.CameraType.Custom
 end
 
---[[========================= видимость в первом лице =========================]]
+--[[========================= first person visibility =========================]]
 
---[[
-	Части персонажа, которые видно от первого лица (CameraConfig).
-	Руки показаны намеренно: без них предмет в руках висит в воздухе сам
-	по себе, и непонятно, чем игрок его держит.
-
-	ПЛЕЧИ (UpperArm) в список не входят: они крепятся к торсу вплотную
-	к камере и в первом лице лезут прямо в кадр.
-]]
 local VisibleCharacterParts = CameraConfig.VisibleCharacterParts
 
---[[
-	Видным остаётся любой Tool в руках плюс сами руки. Всё остальное
-	в персонаже — торс, голова, ноги, аксессуары — прячется: в первом лице
-	оно стоит ровно перед камерой.
-]]
+--[[ the held tool and the arms stay visible: without arms the item floats in the air ]]
 local function isVisibleRoot(instance: Instance): boolean
 	return instance:IsA("Tool") or VisibleCharacterParts[instance.Name] == true
 end
 
---[[ LocalTransparencyModifier есть и у Decal — глаза рыбы, лицо, наклейки на удочке. ]]
+--[[ Decal has LocalTransparencyModifier too: faces and stickers ]]
 local function isRenderable(instance: Instance): boolean
 	return instance:IsA("BasePart") or instance:IsA("Decal")
 end
@@ -176,10 +149,7 @@ local function watchCharacter(self, character: Model)
 
 	table.clear(self._characterConnections)
 
-	--[[
-		Пересборка по флагу, а не прямо в обработчике: и удочка, и модель
-		рыбы приезжают целым деревом, то есть десятком событий подряд.
-	]]
+	--[[ rebuilt by flag, not in the handler: a tool or model arrives as a whole tree, a dozen events in a row ]]
 	local function markDirty()
 		self._visiblePartsDirty = true
 	end
@@ -191,24 +161,9 @@ local function watchCharacter(self, character: Model)
 end
 
 --[[
-	Прозрачность персонажа считаем САМИ, а не правим штатную. Причины две,
-	и вторая важнее первой.
-
-	1. Штатный TransparencyController в первом лице гасит ВЕСЬ персонаж целиком,
-	включая тул в руках: Tool живёт внутри персонажа, то есть предмет игры
-	пропадает вместе с ним.
-
-	2. Он вообще выключается, как только CameraSubject перестаёт быть Humanoid:
-	TransparencyController:SetSubject на любом другом субъекте делает TearDown
-	и возвращает всем частям ноль. А именно это делает RagdollCamera — она подсовывает
-	заанкеренный якорь-парт. Без собственного счёта игрок каждый рэгдолл
-	смотрел бы в изнанку собственного торса.
-
-	Приоритет обязательно ПОЗЖЕ камеры: штатный контроллер работает внутри бинда
-	Enum.RenderPriority.Camera, и на равном приоритете он перетрёт нас в том же кадре.
-
-	Цена решения: персонаж скрыт БЕЗУСЛОВНО, пока бинд стоит. Появится сцена
-	от третьего лица — бинд надо гасить на её время.
+	own transparency instead of the default TransparencyController: it hides the held tool with the character,
+	and it turns off when CameraSubject is not a Humanoid (RagdollCamera). Priority after Camera, or it overwrites us
+	in the same frame. The character stays hidden while the bind exists: a third person scene must unbind it
 ]]
 local function startVisibilityKeeper(self)
 	RunService:BindToRenderStep(FirstPersonBind, Enum.RenderPriority.Camera.Value + 1, function()
@@ -241,10 +196,7 @@ function CameraController:Initialize(player: Player)
 		watchCharacter(self, character)
 	end)
 
-	--[[
-		В третьем лице считать прозрачность не надо вовсе: там штатный
-		контроллер ничего не гасит, а наш бинд спрятал бы персонаж целиком.
-	]]
+	--[[ never in third person: the bind would hide the whole character ]]
 	if CameraConfig.FirstPersonVisibility then
 		startVisibilityKeeper(self)
 	end

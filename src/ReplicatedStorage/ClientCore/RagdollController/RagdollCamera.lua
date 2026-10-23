@@ -1,13 +1,3 @@
---[[
-	RagdollCamera — камера на время лежки.
-
-	По умолчанию камера следит за Humanoid, то есть за рутпартом. В рэгдолле тот
-	кувыркается вместе с телом, и картинку швыряет так, что смотреть невозможно.
-
-	Поэтому подсовываем камере отдельный заанкеренный якорь: он повторяет только
-	позицию тела, без вращения, и догоняет её плавно.
-]]
-
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
@@ -17,8 +7,9 @@ local CharacterUtils = require(ReplicatedStorage.Modules.Utils.CharacterUtils)
 local LocalPlayer = Players.LocalPlayer
 
 local AnchorName = "RagdollCameraAnchor"
-local FollowSpeed = 9 -- чем меньше, тем плавнее камера догоняет тело
+local FollowSpeed = 9 -- lower is smoother
 
+--[[ the camera follows an anchored anchor with position only: the tumbling root part would throw the view around ]]
 local RagdollCamera = {}
 RagdollCamera.__index = RagdollCamera
 
@@ -29,7 +20,7 @@ function RagdollCamera:Follow(character: Model)
 
 	self:Stop()
 
-	--[[ Камеру берём заново: после респавна CurrentCamera могла смениться. ]]
+	--[[ fetched again: CurrentCamera may change after a respawn ]]
 	local camera = workspace.CurrentCamera
 	self._camera = camera
 
@@ -55,7 +46,6 @@ function RagdollCamera:Follow(character: Model)
 			return
 		end
 
-		-- экспоненциальное сглаживание: не зависит от частоты кадров
 		local alpha = 1 - math.exp(-FollowSpeed * deltaTime)
 
 		anchor.CFrame = CFrame.new(anchor.Position:Lerp(torso.Position, alpha))
@@ -77,10 +67,7 @@ function RagdollCamera:Stop()
 	local character = LocalPlayer.Character
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 
-	--[[
-		Возвращаем именно Humanoid, а не запомненный субъект: пока мы лежали,
-		персонаж мог смениться, и старая ссылка уже никуда не годится.
-	]]
+	--[[ the current Humanoid, not the stored subject: the character may have changed while lying down ]]
 	if humanoid then
 		camera.CameraSubject = humanoid
 	elseif self._previousSubject then

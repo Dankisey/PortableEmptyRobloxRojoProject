@@ -1,25 +1,29 @@
-# Замысел
+# Concept
 
-Действующий замысел игры. Источник — ТЗ заказчика или решения пользователя; правится, когда меняется замысел, а не реализация.
+The current game concept. The source is the client brief or the user's decisions; it changes when the concept changes, not the implementation.
 
-> Заготовка шаблона: заполни разделы ниже, заглушки в `<угловых скобках>` удали.
+> Template stub: fill in the sections below and delete the `<angle bracket>` placeholders.
 
-## Одной фразой
+## In one sentence
 
-`<Что делает игрок и ради чего>`
+`<What the player does and why>`
 
-## Цикл игры
+## Game loop
 
-`<Минута игры: действие → награда → куда тратится → что меняется>`
+`<A minute of play: action → reward → where it is spent → what changes>`
 
-## Прогрессия и монетизация
+## Progression and monetization
 
-`<Валюты, множители, Rebirth/престиж; что продаётся за Robux — Game Pass, Developer Product>`
+`<Currencies, multipliers, Rebirth/prestige; what is sold for Robux — Game Pass, Developer Product>`
 
-## Референсы
+## Interface
 
-`<Игры и механики, на которые ориентируемся; донор, если есть>`
+`<Project fonts, palette, purchase button colors; references for the main screens>`
 
-## Вне прототипа
+## References
 
-`<Что сознательно не делаем сейчас>`
+`<Games and mechanics to follow>`
+
+## Outside the prototype
+
+`<What is deliberately not done now>`

@@ -1,12 +1,4 @@
---[[
-	Смысл события → имя шаблона звука в SoundService.SFX.
-
-	Игровые модули знают только имя отсюда, а SoundConfig держит id и громкость.
-	Новый звук заводится в трёх местах сразу: здесь, в SoundConfig.Sfx
-	и инстансом Sound в SoundService.SFX — иначе SoundPlayer предупредит
-	в консоли, что шаблона нет.
-]]
-
+--[[ a new sound needs an entry here, in SoundConfig.Sfx and a Sound instance in SoundService.SFX ]]
 local SoundNames = {
 	Click = "ClickSound";
 	Hover = "HoverSound";

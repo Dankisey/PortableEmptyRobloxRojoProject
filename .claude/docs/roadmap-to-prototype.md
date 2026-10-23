@@ -1,16 +1,16 @@
-# План до прототипа
+# Plan to prototype
 
-Вехи по порядку, развилки и критерии приёмки. Веху закрывает пользователь; принятая уходит выжимкой в [milestones-done](milestones-done.md), план — копией в `backup/`.
+Milestones in order, forks and acceptance criteria. Only the user closes a milestone; an accepted one goes as a summary into [milestones-done](milestones-done.md), its plan as a copy into `backup/`.
 
-> Заготовка шаблона: вехи заводятся после согласования [замысла](concept.md).
+> Template stub: milestones are added after the [concept](concept.md) is agreed.
 
-## M0. Документация и каркас
+## M0. Documentation and framework
 
-- Заполнить `CLAUDE.md` (название, PlaceId, GameId) и [concept](concept.md).
-- Опубликовать плейс (иначе `Monetization` падает в Play — [долг](debts.md#баги-каркаса)), проверить `SavesConfig`.
-- Критерий: `check-agent-docs.ps1` без ошибок, компиляция плейса — 0 ошибок, Play с чистой консолью.
+- Fill in `CLAUDE.md` (name, PlaceId, GameId) and the [concept](concept.md).
+- Publish the place, check `SavesConfig`, add developer UserIds to `DevelopersConfig`.
+- Criterion: `check-agent-docs.ps1` without errors, place compilation with 0 errors, Play with a clean console, the admin panel visible to a developer only.
 
-## M1. `<Первая игровая система>`
+## M1. `<First game system>`
 
-- `<Что входит>`
-- Критерии: `[авто]` — `<…>`; `[глазами]` — `<…>`.
+- `<What is included>`
+- Criteria: `[auto]` — `<…>`; `[visual]` — `<…>`.

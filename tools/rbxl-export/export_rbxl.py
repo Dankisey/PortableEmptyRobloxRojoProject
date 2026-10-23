@@ -1,5 +1,5 @@
-"""Выгрузка скриптов и папок из сохранённого .rbxl в раскладку Rojo; GUI, ремоуты и ассеты не выгружаются.
-usage: python -I export_rbxl.py <place.rbxl> <out_src_dir>   (out_src_dir пустой или не существует; Python 3.14+)"""
+"""Exports scripts and folders from a saved .rbxl into a Rojo layout; GUI, remotes and assets are not exported.
+usage: python -I export_rbxl.py <place.rbxl> <out_src_dir>   (out_src_dir is empty or missing; Python 3.14+)"""
 import json, os, struct, sys
 from compression import zstd
 
@@ -119,7 +119,7 @@ def parse(data):
             elif t == 0x12:
                 vals = r.interleaved(n)
             else:
-                sys.exit(f"{cname}.{prop}: неожиданный тип 0x{t:02x}")
+                sys.exit(f"{cname}.{prop}: unexpected type 0x{t:02x}")
             for i, v in zip(ids, vals):
                 inst[i][prop] = v
         elif name == "PRNT":
@@ -162,7 +162,7 @@ def emit(inst, k, out_dir, where, report):
     i = inst[k]
     name = i["Name"]
     if set(name) & BAD_CHARS or name in ("", ".", "..") or name.lower() == "init":
-        report["warnings"].append(f"{where}: имя не годится для файла")
+        report["warnings"].append(f"{where}: the name is not valid for a file")
         return
     is_script = i["ClassName"] in SCRIPT_CLASSES
     kids = [c for c in i["Children"] if has_script(inst, c)]
@@ -181,7 +181,7 @@ def emit(inst, k, out_dir, where, report):
         meta["ignoreUnknownInstances"] = True
         target_meta = os.path.join(d, "init.meta.json")
     if os.path.exists(path or target_meta) and path:
-        report["warnings"].append(f"{where}: дубль имени, перезапись")
+        report["warnings"].append(f"{where}: duplicate name, overwritten")
     if path:
         src = i.get("Source", b"")
         with open(path, "wb") as f:
@@ -194,14 +194,14 @@ def emit(inst, k, out_dir, where, report):
         for c in kids:
             n = inst[c]["Name"]
             if n in seen:
-                report["warnings"].append(f"{where}.{n}: одинаковые имена соседей")
+                report["warnings"].append(f"{where}.{n}: siblings share a name")
             seen.add(n)
             emit(inst, c, os.path.join(out_dir, name), f"{where}.{n}", report)
 
 
 def main(place, out):
     if os.path.isdir(out) and os.listdir(out):
-        sys.exit(f"{out} не пуст: старые файлы остались бы в зеркале, удали папку перед выгрузкой")
+        sys.exit(f"{out} is not empty: old files would stay in the mirror, delete the folder before exporting")
     inst = parse(open(place, "rb").read())
     by_name = lambda parent, n: next((k for k, i in inst.items() if i["Parent"] == parent and i["Name"] == n), None)
     report = {"scripts": [], "warnings": []}
@@ -224,13 +224,13 @@ def main(place, out):
     sp = by_name(-1, "StarterPlayer")
     for k, i in inst.items():
         if i["Parent"] == -1 and k not in covered and has_script(inst, k) and k != sp:
-            report["warnings"].append(f"скрипты вне проекта Rojo: {i['Name']}")
+            report["warnings"].append(f"scripts outside the Rojo project: {i['Name']}")
     if sp is not None:
         for c in inst[sp]["Children"]:
             if inst[c]["Name"] not in ("StarterCharacterScripts", "StarterPlayerScripts") and has_script(inst, c):
-                report["warnings"].append(f"скрипты вне проекта Rojo: StarterPlayer.{inst[c]['Name']}")
+                report["warnings"].append(f"scripts outside the Rojo project: StarterPlayer.{inst[c]['Name']}")
     total = sum(1 for i in inst.values() if i["ClassName"] in SCRIPT_CLASSES)
-    print(f"скриптов в плейсе: {total}, выгружено: {len(report['scripts'])}")
+    print(f"scripts in the place: {total}, exported: {len(report['scripts'])}")
     for w in report["warnings"]:
         print("WARN", w)
     bad = 0
@@ -242,7 +242,7 @@ def main(place, out):
             src.decode("utf-8")
         except UnicodeDecodeError:
             print("NOT UTF-8", where)
-    print(f"сверка байт: расхождений {bad}")
+    print(f"byte check: mismatches {bad}")
 
 
 if __name__ == "__main__":

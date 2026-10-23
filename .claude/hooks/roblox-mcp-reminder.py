@@ -1,13 +1,10 @@
-"""Подаёт памятку по граблям инструмента Roblox Studio MCP ровно в момент его вызова.
+"""Delivers the pitfall reminder of a Roblox Studio MCP tool at the moment the tool is called.
 
-PreToolUse-хук: на stdin приходит JSON вызова, на stdout — готовый ответ хука либо ничего.
-Код живёт в Studio, файлов на диске нет, поэтому `paths` правил не срабатывает, и единственный
-работающий триггер — сам инструмент. Памятки — в roblox-mcp-reminders.json рядом:
-ключ — имя инструмента, значение — список строк. Правишь памятку — правь JSON.
+A PreToolUse hook: the call JSON arrives on stdin, a ready hook answer or nothing goes to stdout.
+Code lives in Studio, so rule `paths` never fire and the tool itself is the only working trigger.
+Reminders live in roblox-mcp-reminders.json next to this file: key is the tool name, value is a list of lines.
 
-Ответ печатается ASCII-escape'ами: stdout питона на Windows кодируется в системную кодировку,
-и кириллица иначе превращается в мусор. Любая неожиданность — молчаливый выход с кодом 0:
-сломавшийся хук ломает каждый вызов инструмента.
+Any surprise ends with a silent exit code 0: a broken hook breaks every tool call.
 """
 
 import json

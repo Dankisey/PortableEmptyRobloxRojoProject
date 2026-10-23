@@ -1,26 +1,20 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local StarterPlayer = game:GetService("StarterPlayer")
-
 local Players = game:GetService("Players")
-local Player = Players.LocalPlayer
 
 local ControllerTemplate = require(ReplicatedStorage.Modules.ControllerTemplate)
 
+local Player = Players.LocalPlayer
+
 local CharacterMovementController = {}
 
---[[ Шов под будущие модификаторы скорости (баффы, пассы): всё домножается здесь. ]]
-local function getResultSpeed(self) : number
+--[[ the seam for future speed modifiers: everything multiplies here, and a recalculation calls RefreshSpeed ]]
+local function getResultSpeed(self): number
 	return self._defaultSpeed
 end
 
---[[
-	Гуманоид текущего персонажа или nil.
-
-	Раньше здесь стояло `self._player.Character or self._player.CharacterAdded:Wait()`:
-	вызов без персонажа (между смертью и респавном) блокировал вызывающий поток
-	до респавна. Ждать нечего — если персонажа нет, применять скорость не к чему.
-]]
-local function getHumanoid(self) : Humanoid?
+--[[ never waits for CharacterAdded: without a character there is nothing to apply ]]
+local function getHumanoid(self): Humanoid?
 	local character = self._player.Character
 
 	if not character then return nil end
@@ -38,6 +32,7 @@ local function applyMovement(self)
 end
 
 function CharacterMovementController:DisableMovement()
+	self._isEnabled = false
 	self._speed = 0
 	self._jumpHeight = 0
 
@@ -45,8 +40,18 @@ function CharacterMovementController:DisableMovement()
 end
 
 function CharacterMovementController:EnableMovement()
+	self._isEnabled = true
 	self._speed = getResultSpeed(self)
 	self._jumpHeight = self._basicJumpHeight
+
+	applyMovement(self)
+end
+
+--[[ a modifier change must not turn on movement that a ragdoll or a scene turned off ]]
+function CharacterMovementController:RefreshSpeed()
+	if not self._isEnabled then return end
+
+	self._speed = getResultSpeed(self)
 
 	applyMovement(self)
 end
@@ -55,6 +60,7 @@ function CharacterMovementController:Initialize(player: Player)
 	self._player = player
 	self._defaultSpeed = StarterPlayer.CharacterWalkSpeed
 	self._basicJumpHeight = StarterPlayer.CharacterJumpHeight
+	self._isEnabled = true
 	self._speed = getResultSpeed(self)
 	self._jumpHeight = self._basicJumpHeight
 
@@ -62,12 +68,7 @@ function CharacterMovementController:Initialize(player: Player)
 		self._character = character
 		self._humanoid = character:WaitForChild("Humanoid", 5) :: Humanoid?
 
-		--[[
-			Новый персонаж всегда получает движение обратно. Поля _speed и _jumpHeight
-			переживают смерть, и раньше обработчик применял к свежему персонажу то,
-			что в них лежало: умер с выключенным движением — воскрес с WalkSpeed = 0.
-			Мини-игры у нового персонажа быть не может, поэтому сброс безусловный.
-		]]
+		--[[ a new character always gets movement back: the fields survive death, and dying with movement off meant spawning with zero speed ]]
 		self:EnableMovement()
 	end)
 end

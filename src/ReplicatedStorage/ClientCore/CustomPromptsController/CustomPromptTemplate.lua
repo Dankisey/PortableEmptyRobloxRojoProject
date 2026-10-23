@@ -1,5 +1,6 @@
 local UserInputService = game:GetService("UserInputService")
 local PlayerGui = game:GetService("Players").LocalPlayer.PlayerGui
+
 local PromptsGui = PlayerGui:WaitForChild("CustomPrompts")
 
 local CustomPromptTemplate = {}
@@ -20,37 +21,12 @@ local function adaptButtonTextToDevice(controlType: string, gui: UIBase)
 	else
 		frame.ActivationButton.InputIcon.Visible = false
 		frame.ActivationButton.InputText.Visible = true
-
 		frame.ActivationButton.InputText.Text = "X"
 		frame.ActivationButton.InputText.TextColor3 = Color3.fromRGB(92, 135, 255)
-
-		--[[
-		frame.ActivationButton.InputText.Text = "□"
-		frame.ActivationButton.InputText.TextColor3 = Color3.fromRGB(255, 107, 255)
-		]]
 	end
 end
 
---[[
-	Кому промпт разрешено ловить мышью и пальцем. Возвращает true, если кнопка
-	вообще нажимаема на этом устройстве.
-
-	BillboardGui.Active = true — единственный способ сделать кнопку промпта
-	нажимаемой, но он же заставляет билборд ТОПИТЬ ввод мыши. Плейс играется
-	от первого лица: курсор залочен по центру экрана и скрыт совсем, поэтому
-	появившийся под прицелом промпт съедал движение мыши — камера переставала
-	вращаться, пока игрок не отойдёт от рыбы. Тем же путём уезжал и ЛКМ:
-	клик становился gameProcessed, ToolsController его отбрасывал, и вместо
-	заброса срабатывал подбор.
-
-	На ПК и консоли жать промпт нечем и незачем — то же самое делают E и ButtonX,
-	а курсора там нет вовсе. Ввод оставляем только там, где кнопка единственный
-	способ, — на тач-устройствах.
-
-	Условие обязано быть тем же, по которому adaptButtonTextToDevice рисует
-	подпись клавиши: разъехавшись, они врут игроку — подпись обещает одно,
-	а нажимается другое.
-]]
+--[[ Active is the only way to make the prompt tappable, but it also sinks mouse input under the crosshair; touch only, same condition as the key label ]]
 local function adaptInputToDevice(controlType: string, gui: BillboardGui): boolean
 	local isTouch = controlType:match("Mobile") ~= nil
 
@@ -65,7 +41,7 @@ function CustomPromptTemplate:Enable(prompt: ProximityPrompt)
 	self._guiPerPrompt[prompt].Parent = PromptsGui
 	self._guiPerPrompt[prompt].Adornee = part
 
-	local controlType = self._inputController:GetControllType()
+	local controlType = self._inputController:GetControlType()
 	adaptButtonTextToDevice(controlType, self._guiPerPrompt[prompt])
 
 	local isTouch = adaptInputToDevice(controlType, self._guiPerPrompt[prompt])
@@ -76,12 +52,7 @@ function CustomPromptTemplate:Enable(prompt: ProximityPrompt)
 
 	local gui = self._guiPerPrompt[prompt]
 
-	--[[
-		Кнопку подключаем только там, где по ней жмут. На ПК и консоли билборд
-		ввод не принимает вовсе, а подключённая кнопка держала бы вечный
-		HoveringTask и считала бы залоченный по центру курсор наведением —
-		звук наведения играл бы на каждый показ промпта.
-	]]
+	--[[ touch only: a connected button keeps a hover task and would treat a locked center cursor as hovering ]]
 	if isTouch then
 		task.spawn(function()
 			local button = gui:WaitForChild("Background", 1)
@@ -92,7 +63,6 @@ function CustomPromptTemplate:Enable(prompt: ProximityPrompt)
 
 			if not button then return end
 
-			-- промпт мог успеть скрыться, пока ждали кнопку
 			if self._guiPerPrompt[prompt] ~= gui then return end
 
 			self._buttonsInteractionsConnector:ConnectButton(button, self.Use, self, prompt)
@@ -100,15 +70,7 @@ function CustomPromptTemplate:Enable(prompt: ProximityPrompt)
 	end
 
 	self._inputConnections[prompt] = UserInputService.InputBegan:Connect(function(input)
-		--[[
-			ГВАРД ИМЕННО НА НАБОР ТЕКСТА, А НЕ НА gameProcessed.
-
-			Ввод промпта забирает сам ProximityPromptService: он биндит KeyboardKeyCode
-			через ContextActionService и помечает нажатие как обработанное игрой.
-			Поэтому кастомный шаблон обязан слушать СЫРОЙ InputBegan — проверка
-			gameProcessed съедает каждое E, и подбор перестаёт работать вовсе,
-			молча и без единой ошибки в консоли. Уже наступали.
-		]]
+		--[[ guard on typing, not gameProcessed: ProximityPromptService marks the key as processed, and every E would be eaten silently ]]
 		if UserInputService:GetFocusedTextBox() then return end
 
 		if input.KeyCode == Enum.KeyCode.E or input.KeyCode == Enum.KeyCode.ButtonX then
@@ -116,12 +78,7 @@ function CustomPromptTemplate:Enable(prompt: ProximityPrompt)
 		end
 	end)
 
-	--[[
-		GUI живёт ровно столько, сколько живёт сам инстанс промпта. Нужно тем,
-		кто не гасится по использованию (см. KeepShownOnUse): их промпт исчезает
-		вместе с объектом, а PromptHidden в этот момент уже не придёт — билборд
-		остался бы висеть сиротой.
-	]]
+	--[[ the GUI lives as long as the prompt instance: PromptHidden does not come when the object is destroyed ]]
 	self._ancestryConnections = self._ancestryConnections or {}
 	self._ancestryConnections[prompt] = prompt.AncestryChanged:Connect(function(_, parent)
 		if parent then return end
@@ -138,11 +95,7 @@ function CustomPromptTemplate:Disable(prompt: ProximityPrompt)
 	if gui then
 		self._guiPerPrompt[prompt] = nil
 
-		--[[
-			Обязательно отключаем кнопку до Destroy: ButtonsInteractionsConnector
-			держит на каждую подключённую кнопку вечный HoveringTask.
-			Без этого каждый показ промпта оставлял за собой живой цикл.
-		]]
+		--[[ disconnect before Destroy: the connector keeps a hover task per connected button ]]
 		local background = gui:FindFirstChild("Background")
 		local button = background and background:FindFirstChild("ActivationButton")
 
@@ -177,13 +130,7 @@ function CustomPromptTemplate:Use(prompt: ProximityPrompt)
 
 	self:OnUsed(prompt)
 
-	--[[
-		KeepShownOnUse — для промптов, которым сервер МОЖЕТ ОТКАЗАТЬ (подбор рыбы:
-		полный инвентарь, кулдаун, дистанция). Гасить такие по нажатию нельзя:
-		PromptShown повторно не придёт, и промпт пропадал насовсем, пока игрок
-		не выйдет из радиуса и не вернётся. Они снимаются по исчезновению самого
-		инстанса промпта (см. Enable) либо обычным PromptHidden.
-	]]
+	--[[ for prompts the server may refuse: PromptShown does not repeat, and a hidden prompt would be gone until the player walks away ]]
 	if self.KeepShownOnUse then return end
 
 	self:Disable(prompt)

@@ -1,11 +1,4 @@
---[[
-	Типы, которые нужны и серверу, и клиенту сразу.
-
-	Пусто — это штатное состояние каркаса: общие типы появляются вместе
-	с первой сущностью, которая ездит через ремоут в обе стороны.
-	Типы одной стороны живут в ServerTypes и ClientTypes.
-]]
-
+--[[ types needed by both server and client; empty until the first entity travels through a remote both ways ]]
 local SharedTypes = {}
 
 return SharedTypes

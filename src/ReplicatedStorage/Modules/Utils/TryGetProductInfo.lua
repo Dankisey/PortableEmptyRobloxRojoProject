@@ -10,7 +10,7 @@ local TryGetProductInfo = function(id: number, infoType: Enum.InfoType)
 		local isSuccess, value = pcall(MarketplaceService.GetProductInfoAsync, MarketplaceService, id, infoType)
 
 		if not isSuccess then
-			warn("An error occured while getting product info: " .. tostring(value))
+			warn("An error occurred while getting product info: " .. tostring(value))
 			task.wait(RetryDelay * (tries + 1))
 		else
 			result = value

@@ -1,16 +1,6 @@
---[[
-	Имена тегов и папок мира, по которым ходит WorldQuery.
-
-	Вода здесь потому, что в Roblox она обычно два разных объекта: видимый
-	Terrain и невидимый парт-коллайдер с тегом. Из-за CanQuery на коллайдере
-	любой рейкаст "где земля" обязан его исключать, иначе считает воду опорой.
-
-	Нет воды в проекте — ничего не помечено тегом, RaycastWater честно вернёт
-	nil, а RaycastGround просто ничего не исключит. Удалять модуль не надо.
-]]
-
 local WorldConfig = {}
 
+--[[ with no water in the place nothing is tagged: RaycastWater returns nil and RaycastGround excludes nothing ]]
 WorldConfig.WaterTag = "Water"
 
 return WorldConfig

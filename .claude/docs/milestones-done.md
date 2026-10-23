@@ -1,5 +1,5 @@
-# Принятые вехи
+# Accepted milestones
 
-Выжимка вех, закрытых пользователем: что сделано, чем проверено, какие числа остаются действующими. Закрытый план хранится копией в `backup/`.
+A summary of milestones closed by the user: what was done, how it was checked, which numbers stay in force. A closed plan is kept as a copy in `backup/`.
 
-Пока пусто.
+Empty so far.

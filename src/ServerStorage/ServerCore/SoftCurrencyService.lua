@@ -4,8 +4,7 @@ local SoftCurrencyService = {} :: ServiceTemplate.Type
 
 SoftCurrencyService.SaveSection = "Currencies"
 
--- имя валюты — оно же имя атрибута игрока с балансом
-local Currencies = {"Cash"}
+local Currencies = {"Cash"} -- currency name = name of the player attribute with its balance
 
 local function isValidAmount(value: any): boolean
 	return type(value) == "number" and value == value and value ~= math.huge and value >= 0
@@ -17,7 +16,7 @@ local function readAmount(source: any, name: string): number
 	return if isValidAmount(value) then value else 0
 end
 
---[[========================= сейв =========================]]
+--[[========================= save =========================]]
 
 function SoftCurrencyService:LoadSave(player: Player, data: any)
 	data = type(data) == "table" and data or {}
@@ -33,7 +32,7 @@ function SoftCurrencyService:LoadSave(player: Player, data: any)
 	self._data[player] = {Balances = balances, Earned = earned}
 end
 
--- nil значит «сейв не читался»: SavesLoader такой раздел не трогает
+-- nil = the save was never read: SavesLoader leaves the section untouched
 function SoftCurrencyService:GetSave(player: Player): any
 	local data = self._data[player]
 
@@ -46,7 +45,7 @@ function SoftCurrencyService:UnloadSave(player: Player)
 	self._data[player] = nil
 end
 
---[[========================= баланс =========================]]
+--[[========================= balance =========================]]
 
 function SoftCurrencyService:GetCurrency(player: Player, currencyName: string): number?
 	local data = self._data[player]
@@ -54,7 +53,7 @@ function SoftCurrencyService:GetCurrency(player: Player, currencyName: string): 
 	return data and data.Balances[currencyName]
 end
 
--- false значит «сейв не загружен», валюты нет или сумма не годится
+-- false = save not loaded, unknown currency or invalid amount
 function SoftCurrencyService:AddCurrency(player: Player, currencyName: string, amount: number): boolean
 	local data = self._data[player]
 
@@ -67,7 +66,7 @@ function SoftCurrencyService:AddCurrency(player: Player, currencyName: string, a
 	return true
 end
 
-function SoftCurrencyService:TrySpentCurrency(player: Player, currencyName: string, spentAmount: number, transactionType: Enum.AnalyticsEconomyTransactionType, itemSku: string?): boolean
+function SoftCurrencyService:TrySpendCurrency(player: Player, currencyName: string, spentAmount: number, transactionType: Enum.AnalyticsEconomyTransactionType, itemSku: string?): boolean
 	local data = self._data[player]
 	local balance = data and data.Balances[currencyName]
 
@@ -81,7 +80,6 @@ function SoftCurrencyService:TrySpentCurrency(player: Player, currencyName: stri
 
 	data.Balances[currencyName] -= spentAmount
 	player:SetAttribute(currencyName, data.Balances[currencyName])
-	--self._services.Analytics:LogCurrencySpending(player, currencyName, spentAmount, transactionType, itemSku)
 
 	return true
 end
@@ -89,7 +87,7 @@ end
 function SoftCurrencyService.new()
 	local self = setmetatable(SoftCurrencyService, {__index = ServiceTemplate})
 
-	self._data = {}  -- [Player] = {Balances = {[currency] = n}, Earned = {[currency] = n}}
+	self._data = {} -- [Player] = {Balances = {[currency] = n}, Earned = {[currency] = n}}
 
 	return self
 end

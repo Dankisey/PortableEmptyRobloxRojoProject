@@ -5,9 +5,9 @@ local ServiceTemplate = require(script.Parent.Parent.ServiceTemplate)
 
 local ServerMessagesSender = {}
 
-function ServerMessagesSender:SendMessageToPlayer(reciever: Player, ...)
+function ServerMessagesSender:SendMessageToPlayer(receiver: Player, ...)
 	local resultMessage = self._configs.MessagesConfig.FormatMessage(...)
-	MessageEvent:FireClient(reciever, resultMessage)
+	MessageEvent:FireClient(receiver, resultMessage)
 end
 
 function ServerMessagesSender:SendMessage(...)

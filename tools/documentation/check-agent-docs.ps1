@@ -1,4 +1,4 @@
-﻿# Из корня проекта: powershell -NoProfile -ExecutionPolicy Bypass -File tools/documentation/check-agent-docs.ps1
+﻿# From the project root: powershell -NoProfile -ExecutionPolicy Bypass -File tools/documentation/check-agent-docs.ps1
 [CmdletBinding()]
 param([string] $ProjectRoot)
 
@@ -11,9 +11,9 @@ $problems = [System.Collections.Generic.List[string]]::new()
 $linkCount = 0
 $ruleCount = 0
 
-# Правила без paths Claude Code грузит в каждую сессию; третье такое требует решения в decisions/agent-docs.md.
+# Rules without paths load in every session; a third one needs a decision in decisions/agent-docs.md.
 $UnconditionalRules = @('workflow.md', 'code-style.md')
-# Исходники заказчика (ТЗ): не правятся и ссылками не проверяются. Пример: @('docs/tz-prototype.md')
+# Client sources (briefs): never edited and not link checked. Example: @('docs/brief.md')
 $ExcludedDocs = @()
 
 function Read-Doc([string] $path) {
@@ -52,7 +52,7 @@ function Test-Reference([string] $docPath, [string] $rawTarget, [bool] $fromRoot
 	if ($target.StartsWith('<')) { $target = ($target -split '>', 2)[0].Substring(1) }
 	$target = [regex]::Replace($target, '\s+["''].*["'']\s*$', '')
 	if (-not $target -or $target -match '^(?:[a-zA-Z][a-zA-Z0-9+.-]*:|//)') { return }
-	if ($target -match '[*?{}]' -or $target -match '<[^>]+>|\.\.\.|…') { return }
+	if ($target -match '[*?{}]' -or $target -match '<[^>]+>|\.\.\.|\u2026') { return }
 	$parts = $target -split '#', 2
 	$fileTarget = [uri]::UnescapeDataString($parts[0])
 	$anchor = if ($parts.Count -gt 1) { [uri]::UnescapeDataString($parts[1]) } else { '' }
@@ -65,54 +65,56 @@ function Test-Reference([string] $docPath, [string] $rawTarget, [bool] $fromRoot
 		$resolved = Join-Path (Split-Path -Parent $docPath) $fileTarget
 	}
 	if (-not (Test-Path -LiteralPath $resolved)) {
-		$script:problems.Add("Битая ссылка: $(Relative $docPath) -> $target")
+		$script:problems.Add("Broken link: $(Relative $docPath) -> $target")
 		return
 	}
 	if ($anchor -and (Test-Path -LiteralPath $resolved -PathType Leaf) -and [System.IO.Path]::GetExtension($resolved) -eq '.md') {
 		if (-not (Get-Anchors (Read-Doc $resolved)).Contains($anchor)) {
-			$script:problems.Add("Нет anchor: $(Relative $docPath) -> $target")
+			$script:problems.Add("Missing anchor: $(Relative $docPath) -> $target")
 		}
 	}
 }
 
-# Обязательный состав
+# Required files
 $required = @(
 	'CLAUDE.md', '.claude/README.md', '.claude/decisions.md', '.claude/pitfalls/README.md',
 	'.claude/docs/systems/README.md', '.claude/docs/concept.md', '.claude/docs/debts.md',
 	'.claude/docs/roadmap-to-prototype.md', '.claude/docs/milestones-done.md',
-	'.claude/hooks/roblox-mcp-reminders.json', '.claude/hooks/roblox-mcp-reminder.py', '.claude/settings.json'
+	'.claude/docs/animation-principles.md', '.claude/docs/ui-principles.md',
+	'.claude/hooks/roblox-mcp-reminders.json', '.claude/hooks/roblox-mcp-reminder.py',
+	'.claude/hooks/principles-reminders.json', '.claude/hooks/principles-reminder.py', '.claude/settings.json'
 )
 foreach ($file in $required) {
-	if (-not (Test-Path -LiteralPath (Join-Path $ProjectRoot $file) -PathType Leaf)) { $problems.Add("Отсутствует файл: $file") }
+	if (-not (Test-Path -LiteralPath (Join-Path $ProjectRoot $file) -PathType Leaf)) { $problems.Add("Missing file: $file") }
 }
 
-# Правила: индекс в CLAUDE.md и paths
+# Rules: index in CLAUDE.md and paths
 $rootText = Read-Doc (Join-Path $ProjectRoot 'CLAUDE.md')
 foreach ($rule in (Get-ChildItem -LiteralPath (Join-Path $claudeDir 'rules') -Filter '*.md' -File -Recurse)) {
 	$ruleCount++
 	$relativeRule = $rule.FullName.Substring($claudeDir.Length + 1).Replace('\', '/')
-	if ($rootText -notmatch [regex]::Escape(".claude/$relativeRule")) { $problems.Add("Правило не в таблице CLAUDE.md: $relativeRule") }
+	if ($rootText -notmatch [regex]::Escape(".claude/$relativeRule")) { $problems.Add("Rule missing from the CLAUDE.md table: $relativeRule") }
 	$header = [regex]::Match((Read-Doc $rule.FullName), '(?s)^---\n(.*?)\n---(?:\n|$)')
 	$pathsLine = if ($header.Success) { [regex]::Match($header.Groups[1].Value, '(?m)^paths:\s*(\[.*\])\s*$') } else { $null }
 	if ($rule.Name -in $UnconditionalRules) {
-		if ($header.Success) { $problems.Add("Безусловное правило не должно иметь frontmatter: $relativeRule") }
+		if ($header.Success) { $problems.Add("An unconditional rule must not have frontmatter: $relativeRule") }
 		continue
 	}
 	if (-not $pathsLine -or -not $pathsLine.Success) {
-		$problems.Add("Правило без paths (третье безусловное требует решения): $relativeRule")
+		$problems.Add("Rule without paths (a third unconditional rule needs a decision): $relativeRule")
 		continue
 	}
 	$globs = [regex]::Matches($pathsLine.Groups[1].Value, '"([^"]+)"') | ForEach-Object { $_.Groups[1].Value }
-	if (-not $globs) { $problems.Add("Пустой paths: $relativeRule") }
+	if (-not $globs) { $problems.Add("Empty paths: $relativeRule") }
 	foreach ($glob in $globs) {
 		$literal = ($glob -split '[*?]', 2)[0]
 		if ($literal -and -not (Test-Path -LiteralPath (Join-Path $ProjectRoot $literal))) {
-			$problems.Add("paths указывает на несуществующее: $relativeRule -> $glob")
+			$problems.Add("paths points to nothing: $relativeRule -> $glob")
 		}
 	}
 }
 
-# Индексы разделов
+# Section indexes
 $indexes = @(
 	@('decisions', 'decisions.md'),
 	@('pitfalls', 'pitfalls/README.md'),
@@ -126,19 +128,19 @@ foreach ($spec in $indexes) {
 	foreach ($topic in (Get-ChildItem -LiteralPath $folder -Filter '*.md' -File)) {
 		if ($topic.Name -eq 'README.md') { continue }
 		if ($indexText -notmatch [regex]::Escape("($($topic.Name)") -and $indexText -notmatch [regex]::Escape("/$($topic.Name)")) {
-			$problems.Add("Файл не в индексе: $($spec[1]) -> $($topic.Name)")
+			$problems.Add("File missing from index: $($spec[1]) -> $($topic.Name)")
 		}
 	}
 }
 
-# Ссылки и пути в документах
+# Links and paths in documents
 $docs = @(Get-Item -LiteralPath (Join-Path $ProjectRoot 'CLAUDE.md'))
 $docs += Get-ChildItem -LiteralPath $claudeDir -Filter '*.md' -File -Recurse
 foreach ($doc in $docs) {
 	$relativeDoc = Relative $doc.FullName
 	if ($ExcludedDocs | Where-Object { $relativeDoc -eq ".claude/$_" }) { continue }
 	$raw = Read-Doc $doc.FullName
-	if ($raw -match '(?<![\w./-])docs/(?:pitfalls|decisions|codestyle)\.md') { $problems.Add("Старый путь шаблона: $relativeDoc") }
+	if ($raw -match '(?<![\w./-])docs/(?:pitfalls|decisions|codestyle)\.md') { $problems.Add("Old template path: $relativeDoc") }
 	$text = [regex]::Replace((Without-Fences $raw), '(?s)^---\n.*?\n---(?:\n|$)', '')
 	foreach ($link in [regex]::Matches($text, '\[[^\]\r\n]*\]\((<[^>\r\n]+>|[^)\r\n]+)\)')) {
 		Test-Reference $doc.FullName $link.Groups[1].Value $false
@@ -150,26 +152,45 @@ foreach ($doc in $docs) {
 	}
 }
 
-# Памятки хука
+# Project text is English
+$textFiles = @(Get-Item -LiteralPath (Join-Path $ProjectRoot 'CLAUDE.md'), (Join-Path $ProjectRoot 'README.md'))
+$textFiles += Get-ChildItem -LiteralPath $claudeDir -File -Recurse | Where-Object { $_.Extension -in @('.md', '.json', '.py') }
+$textFiles += Get-ChildItem -LiteralPath (Join-Path $ProjectRoot 'tools') -File -Recurse | Where-Object { $_.Extension -in @('.ps1', '.py') }
+foreach ($file in $textFiles) {
+	$relativeFile = Relative $file.FullName
+	if ($ExcludedDocs | Where-Object { $relativeFile -eq ".claude/$_" }) { continue }
+	if ((Read-Doc $file.FullName) -match '[\u0400-\u04FF]') { $problems.Add("Cyrillic text: $relativeFile") }
+}
+
+# Hook reminders
 try {
-	$reminders = (Read-Doc (Join-Path $claudeDir 'hooks/roblox-mcp-reminders.json')) | ConvertFrom-Json
 	$settings = (Read-Doc (Join-Path $claudeDir 'settings.json')) | ConvertFrom-Json
 	$matchers = @($settings.hooks.PreToolUse | ForEach-Object { $_.matcher })
+	$reminders = (Read-Doc (Join-Path $claudeDir 'hooks/roblox-mcp-reminders.json')) | ConvertFrom-Json
 	foreach ($tool in $reminders.PSObject.Properties.Name) {
-		if (-not ($matchers | Where-Object { $tool -match $_ })) { $problems.Add("Памятка без матчера в settings.json: $tool") }
+		if (-not ($matchers | Where-Object { $tool -match $_ })) { $problems.Add("Reminder without a matcher in settings.json: $tool") }
 		foreach ($line in $reminders.$tool) {
 			foreach ($path in [regex]::Matches($line, '\.claude/[\w./-]+\.md')) {
-				if (-not (Test-Path -LiteralPath (Join-Path $ProjectRoot $path.Value))) { $problems.Add("Битый путь в памятке: $tool -> $($path.Value)") }
+				if (-not (Test-Path -LiteralPath (Join-Path $ProjectRoot $path.Value))) { $problems.Add("Broken path in a reminder: $tool -> $($path.Value)") }
+			}
+		}
+	}
+	$principles = (Read-Doc (Join-Path $claudeDir 'hooks/principles-reminders.json')) | ConvertFrom-Json
+	foreach ($group in $principles.PSObject.Properties.Name) {
+		if (-not $principles.$group.keywords) { $problems.Add("Principles group without keywords: $group") }
+		foreach ($line in $principles.$group.lines) {
+			foreach ($path in [regex]::Matches($line, '\.claude/[\w./-]+\.md')) {
+				if (-not (Test-Path -LiteralPath (Join-Path $ProjectRoot $path.Value))) { $problems.Add("Broken path in principles: $group -> $($path.Value)") }
 			}
 		}
 	}
 } catch {
-	$problems.Add("Некорректный JSON памяток или settings: $($_.Exception.Message)")
+	$problems.Add("Invalid reminders or settings JSON: $($_.Exception.Message)")
 }
 
 if ($problems.Count -gt 0) {
 	$problems | Sort-Object -Unique | ForEach-Object { Write-Output $_ }
 	exit 1
 }
-Write-Output "OK: $ruleCount правил, $linkCount ссылок и путей, индексы и памятки сходятся."
-Write-Output 'Смысл документации и соответствие Source в Studio проверяются отдельно.'
+Write-Output "OK: $ruleCount rules, $linkCount links and paths, indexes, reminders and language agree."
+Write-Output 'Documentation meaning and agreement with Source in Studio are checked separately.'

@@ -8,7 +8,7 @@ export type ButtonsInteractionsConnector = {
 
 	ConnectButton: (ButtonsInteractionsConnector, button: GuiButton, callback: (any) -> (), any) -> nil;
 
-	-- удержание: onPress на нажатии, onRelease на конце этого же ввода, где бы ни оказался палец
+	-- onPress on press, onRelease at the end of the same input wherever the finger is
 	ConnectHoldButton: (ButtonsInteractionsConnector, button: GuiButton, onPress: () -> (), onRelease: () -> ()) -> ();
 	DisconnectButton: (ButtonsInteractionsConnector, button: GuiButton) -> nil;
 
@@ -19,7 +19,7 @@ export type ButtonsInteractionsConnector = {
 		ReleaseConnection: RBXScriptConnection?;
 	}};
 	_buttonsParent: {[GuiButton]: ScreenGui};
-	_tweenigButtons: {[GuiButton]: boolean};
+	_tweeningButtons: {[GuiButton]: boolean};
 	_isMobile: boolean;
 } & ControllerTemplate
 
@@ -28,6 +28,7 @@ export type CharacterMovementController = {
 
 	EnableMovement: (CharacterMovementController) -> nil;
 	DisableMovement: (CharacterMovementController) -> nil;
+	RefreshSpeed: (CharacterMovementController) -> nil;
 } & ControllerTemplate
 
 export type ClientMessagesSender = {
@@ -43,15 +44,12 @@ export type BackgroundMusicController = {
 	Skip: (BackgroundMusicController) -> nil;
 } & ControllerTemplate
 
---[[
-	Камера катсцен плюс видимость персонажа в первом лице.
-	ResetCamera обязателен: без него остальные методы необратимы.
-]]
+--[[ ResetCamera is required: the other methods cannot be undone without it ]]
 export type CameraController = {
 	new: () -> CameraController;
 
 	TweenTo: (CameraController, target: CFrame, time: number, start: CFrame?) -> RBXScriptSignal;
-	ShakeWithoutPivoting: (CameraController, humanoid: Humanoid, shakeIntencity: number, duration: number, frequency: number) -> nil;
+	ShakeWithoutPivoting: (CameraController, humanoid: Humanoid, shakeIntensity: number, duration: number, frequency: number) -> nil;
 	PivotCamera: (CameraController, character: Model, offsetCframe: CFrame) -> nil;
 	FreezeCamera: (CameraController, character: Model) -> nil;
 	FixThirdPerson: (CameraController, character: Model) -> nil;
@@ -72,7 +70,7 @@ export type GuideBeamController = {
 export type InputController = {
 	new: () -> InputController;
 
-	GetControllType: (InputController) -> "Console"|"Mobile"|"Desktop";
+	GetControlType: (InputController) -> "Console"|"Mobile"|"Desktop";
 } & ControllerTemplate
 
 export type SoundPlayer = {
@@ -81,18 +79,13 @@ export type SoundPlayer = {
 	PlaySound: (SoundPlayer, soundName: string, onPart: (BasePart | Attachment)?) -> Sound?;
 } & ControllerTemplate
 
---[[
-	Что у игрока в руках и что делает кнопка использования. Штатной активации
-	тула нет: всё идёт через UseEquippedTool. Что именно делает конкретный тип
-	тула, каркас не знает — игра регистрирует действие сама.
-]]
 export type ToolsController = {
 	new: () -> ToolsController;
 
-	-- привязать поведение к типу тула; onRelease нужен только тулам с удержанием
+	-- onRelease is needed only by tools that hold
 	RegisterAction: (ToolsController, toolType: string, onUse: (Tool) -> (), onRelease: ((Tool) -> ())?) -> ();
 
-	-- единственная точка входа кнопки и её клавиш-двойников
+	-- the only entry point for the use button and its keys
 	UseEquippedTool: (ToolsController) -> ();
 	ReleaseEquippedTool: (ToolsController) -> ();
 	ActivateTool: (ToolsController, tool: Tool) -> ();
@@ -100,7 +93,7 @@ export type ToolsController = {
 	GetEquippedTool: (ToolsController) -> Tool?;
 	GetEquippedToolType: (ToolsController) -> string?;
 
-	-- тул остаётся в руках, но не реагирует на нажатие
+	-- the tool stays in hand but ignores presses
 	SetToolsBlocked: (ToolsController, isBlocked: boolean) -> ();
 	AreToolsBlocked: (ToolsController) -> boolean;
 
@@ -118,19 +111,15 @@ export type TooltipsController = {
 	DefaultTooltipDisabled: UtilsTypes.Event;
 } & ControllerTemplate
 
---[[
-	Вся механика рэгдолла живёт здесь: сервер только шлёт сигнал,
-	потому что реально толкнуть персонажа может только его владелец.
-]]
 export type RagdollController = {
 	new: () -> RagdollController;
 
 	SetRagdoll: (RagdollController, character: Model, enabled: boolean) -> nil;
 	ApplyImpulse: (RagdollController, character: Model, velocity: Vector3) -> nil;
-	-- поза + блокировка тулов + камера целиком: общая точка входа для сцен
+	-- pose, tool blocking and camera together: the shared entry point for scenes
 	ApplyState: (RagdollController, target: Player, isRagdolled: boolean, impulse: Vector3?) -> nil;
 
-	-- читается снаружи, поэтому поле, а не метод
+	-- read from outside, so a field and not a method
 	IsRagdolled: boolean;
 } & ControllerTemplate
 
@@ -181,10 +170,7 @@ export type GuiController = {
 
 --[[========================================================================================]]
 
---[[
-	Добавил контроллер — добавь его сюда. Сверка таблицы с реальным составом
-	ядра автоматизируется скриптом из docs/pitfalls.md.
-]]
+--[[ a controller missing here makes the types go stale silently ]]
 export type Controllers = {
 	BackgroundMusicController: BackgroundMusicController;
 	ButtonsInteractionsConnector: ButtonsInteractionsConnector;
